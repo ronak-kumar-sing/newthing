@@ -1,90 +1,82 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/constants/app_colors.dart';
-import '../../core/theme/slice_spacing.dart';
+import 'package:intl/intl.dart';
+import 'package:drift/drift.dart' show Value;
+import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
+import '../../data/local/database.dart';
+import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-/// Independence Clock — Clean white professional timer + countdown screen.
-/// Functional timer (HH:MM:SS), target date picker, milestones, and pace check.
+/// Focus streak count provider.
+final journalStreakProvider = FutureProvider<int>((ref) async {
+  final dao = ref.watch(journalDaoProvider);
+  return dao.getStreak((entry) => entry.focusRating != null && entry.focusRating! >= 3);
+});
+
+/// Checked-in dates for the current week (Monday to Sunday).
+final currentWeekCheckInsProvider = FutureProvider<List<DateTime>>((ref) async {
+  final dao = ref.watch(journalDaoProvider);
+  final now = DateTime.now();
+  final monday = DateTime(now.year, now.month, now.day).subtract(Duration(days: now.weekday - 1));
+  final sunday = monday.add(const Duration(days: 7));
+
+  final entries = await dao.getEntriesForRange(monday, sunday);
+  return entries.map((e) => e.date).toList();
+});
+
+/// Checked-in dates for a specific month.
+final monthlyCheckInsProvider = FutureProvider.family<List<DateTime>, DateTime>((ref, monthDate) async {
+  final dao = ref.watch(journalDaoProvider);
+  final startOfMonth = DateTime(monthDate.year, monthDate.month, 1);
+  final endOfMonth = DateTime(monthDate.year, monthDate.month + 1, 1).subtract(const Duration(seconds: 1));
+
+  final entries = await dao.getEntriesForRange(startOfMonth, endOfMonth);
+  return entries.map((e) => e.date).toList();
+});
+
 class IndependenceClockScreen extends ConsumerStatefulWidget {
   const IndependenceClockScreen({super.key});
 
   @override
-  ConsumerState<IndependenceClockScreen> createState() =>
-      _IndependenceClockScreenState();
+  ConsumerState<IndependenceClockScreen> createState() => _IndependenceClockScreenState();
 }
 
-class _IndependenceClockScreenState
-    extends ConsumerState<IndependenceClockScreen> {
-  Timer? _timer;
-  int _tick = 0;
-
-  // Timer state
-  int _elapsedSeconds = 0;
-  bool _isRunning = false;
+class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScreen> {
+  late DateTime _selectedMonth;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) {
-        setState(() {
-          _tick++;
-          if (_isRunning) {
-            _elapsedSeconds++;
-          }
-        });
-      }
-    });
+    final now = DateTime.now();
+    _selectedMonth = DateTime(now.year, now.month, 1);
   }
 
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  void _startTimer() => setState(() => _isRunning = true);
-  void _pauseTimer() => setState(() => _isRunning = false);
-  void _resetTimer() => setState(() {
-        _isRunning = false;
-        _elapsedSeconds = 0;
-      });
-
-  String get _timerDisplay {
-    final hours = (_elapsedSeconds ~/ 3600).toString().padLeft(2, '0');
-    final minutes = ((_elapsedSeconds ~/ 60) % 60).toString().padLeft(2, '0');
-    final seconds = (_elapsedSeconds % 60).toString().padLeft(2, '0');
-    return '$hours:$minutes:$seconds';
-  }
-
-  Future<void> _pickDate() async {
+  Future<void> _pickDate(BuildContext context, DateTime? current) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime.now().add(const Duration(days: 365)),
+      initialDate: current ?? DateTime.now().add(const Duration(days: 365)),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: AppColors.textPrimary,
-            ),
+      builder: (context, child) => Theme(
+        data: Theme.of(context).copyWith(
+          colorScheme: const ColorScheme.dark(
+            primary: AnchorTheme.accent,
+            onPrimary: AnchorTheme.onAccent,
+            surface: AnchorTheme.cardBgHigh,
+            onSurface: AnchorTheme.textPrimary,
           ),
-          child: child!,
-        );
-      },
+        ),
+        child: child!,
+      ),
     );
-    if (picked != null && mounted) {
-      // Save via settings provider — the UI will rebuild reactively
-      // ignore: unused_result
-      ref.refresh(settingsProvider);
+    if (picked != null) {
+      await ref.read(settingsDaoProvider).updateSettings(
+            AppSettingsCompanion(independenceDate: Value(picked)),
+          );
+      ref.invalidate(settingsProvider);
     }
   }
 
@@ -92,423 +84,909 @@ class _IndependenceClockScreenState
   Widget build(BuildContext context) {
     final settingsAsync = ref.watch(settingsProvider);
     final settings = settingsAsync.valueOrNull;
-
     final goalDate = settings?.independenceDate;
-    final label = settings?.independenceLabel ?? 'TIMER';
+    final label = settings?.independenceLabel ?? 'INDEPENDENCE CLOCK';
 
     Duration? remaining;
     if (goalDate != null) {
       remaining = goalDate.difference(DateTime.now());
     }
+    final daysLeft = remaining?.inDays ?? 0;
+    const totalDays = 365;
+    final progress = daysLeft > 0
+        ? (1.0 - (daysLeft / totalDays).clamp(0.0, 1.0))
+        : (goalDate != null ? 1.0 : 0.0);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(
-            horizontal: SliceSpacing.desktopPadding,
-            vertical: SliceSpacing.xl,
-          ),
+      backgroundColor: const Color(0xFF050505),
+      body: _AtmosphericBackground(
+        child: SafeArea(
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. TIMER header
-              FadeSlideIn(
-                delaySeconds: 0.0,
-                child: SectionHeader(
-                  label: label.toUpperCase(),
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              const SizedBox(height: SliceSpacing.xxl),
-
-              // 2. Main timer display
-              FadeSlideIn(
-                delaySeconds: 0.1,
-                child: CleanCard(
-                  padding: const EdgeInsets.all(SliceSpacing.lg),
+              // Sticky Top Bar Header
+              _buildHeader(context, goalDate),
+              // Main content
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(32, 24, 32, 100),
                   child: Column(
                     children: [
+                      // Hero Countdown Card
+                      FadeSlideIn(
+                        delaySeconds: 0.05,
+                        child: _buildHeroCard(daysLeft, goalDate, label),
+                      ),
+                      const SizedBox(height: 24.0),
+
+                      // Streak Tracker
+                      FadeSlideIn(
+                        delaySeconds: 0.1,
+                        child: const _StreakTrackerCard(),
+                      ),
+                      const SizedBox(height: 24.0),
+
+                      // Pace Check
+                      FadeSlideIn(
+                        delaySeconds: 0.15,
+                        child: _buildPaceCheckCard(progress, daysLeft),
+                      ),
+                      const SizedBox(height: 24.0),
+
+                      // Monthly Dot Calendar
+                      FadeSlideIn(
+                        delaySeconds: 0.2,
+                        child: _buildMonthlyCalendarCard(),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHeader(BuildContext context, DateTime? goalDate) {
+    final dateStr = goalDate != null
+        ? DateFormat('MMM d, yyyy').format(goalDate)
+        : 'Select Target';
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      decoration: const BoxDecoration(
+        color: Colors.transparent,
+        border: Border(
+          bottom: BorderSide(color: Color(0xFF252525), width: 1),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.grid_view_rounded,
+                size: 20,
+                color: Colors.white,
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Student OS',
+                style: GoogleFonts.inter(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
+              ),
+            ],
+          ),
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => _pickDate(context, goalDate),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
                       Text(
-                        _timerDisplay,
+                        dateStr,
                         style: GoogleFonts.inter(
-                          fontSize: 48,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -1,
-                          color: AppColors.textPrimary,
-                          height: 1.0,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AnchorTheme.textSecondary,
                         ),
                       ),
-                      const SizedBox(height: SliceSpacing.lg),
-                      // 3. Control buttons row
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.calendar_today_rounded,
+                        size: 14,
+                        color: AnchorTheme.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildHeroCard(int daysLeft, DateTime? goalDate, String label) {
+    final startDate = goalDate != null
+        ? goalDate.subtract(const Duration(days: 365))
+        : DateTime.now();
+
+    final startedStr = DateFormat('MMM d').format(startDate);
+    final targetStr = goalDate != null ? DateFormat('MMM d').format(goalDate) : '—';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(32),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+      ),
+      child: Column(
+        children: [
+          Text(
+            goalDate != null ? '$daysLeft' : '—',
+            style: GoogleFonts.sora(
+              fontSize: 80,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+              height: 1.0,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'DAYS REMAINING',
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 2.0,
+              color: AnchorTheme.accent,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'until $label',
+            style: GoogleFonts.inter(
+              fontSize: 13,
+              fontStyle: FontStyle.italic,
+              color: AnchorTheme.textSecondary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.05),
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Started: $startedStr',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AnchorTheme.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Container(
+                  width: 1,
+                  height: 12,
+                  color: Colors.white.withOpacity(0.1),
+                  margin: const EdgeInsets.symmetric(horizontal: 12),
+                ),
+                Text(
+                  'Target: $targetStr',
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: AnchorTheme.textSecondary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPaceCheckCard(double progress, int daysLeft) {
+    final actualPercent = (progress * 100).clamp(0.0, 100.0);
+    final expectedPercent = (actualPercent - 3).clamp(0.0, 100.0);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Pace Check',
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.5,
+                  color: AnchorTheme.textMuted,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AnchorTheme.accent.withOpacity(0.1),
+                  border: Border.all(
+                    color: AnchorTheme.accent.withOpacity(0.2),
+                    width: 1,
+                  ),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text('🔥 ', style: TextStyle(fontSize: 11)),
+                    Text(
+                      'ON TRACK',
+                      style: GoogleFonts.inter(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: AnchorTheme.accent,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final maxWidth = constraints.maxWidth;
+              final dotPosition = progress * maxWidth;
+              return Container(
+                width: double.infinity,
+                height: 12,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.05),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    // Track Fill
+                    FractionallySizedBox(
+                      widthFactor: progress,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: AnchorTheme.accent,
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.3),
+                            width: 1,
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: AnchorTheme.accent.withOpacity(0.6),
+                              blurRadius: 8,
+                              spreadRadius: 1.5,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    // Glowing indicator at the end of progress
+                    if (progress > 0)
+                      Positioned(
+                        left: (dotPosition - 8).clamp(0.0, maxWidth - 16),
+                        top: -2,
+                        child: Container(
+                          width: 16,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AnchorTheme.accent,
+                              width: 2.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AnchorTheme.accent.withOpacity(0.85),
+                                blurRadius: 10,
+                                spreadRadius: 2.5,
+                              ),
+                            ],
+                          ),
+                        ).animate(
+                          onPlay: (controller) => controller.repeat(reverse: true),
+                        ).scale(
+                          begin: const Offset(0.9, 0.9),
+                          end: const Offset(1.15, 1.15),
+                          duration: 1000.ms,
+                          curve: Curves.easeInOut,
+                        ),
+                      ),
+                  ],
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text.rich(
+                TextSpan(
+                  text: '${actualPercent.toStringAsFixed(0)}% ',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: 'complete',
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w400,
+                        color: AnchorTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Text(
+                'Expected: ${expectedPercent.toStringAsFixed(0)}%',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: AnchorTheme.textSecondary,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMonthlyCalendarCard() {
+    final monthStr = DateFormat('MMMM yyyy').format(_selectedMonth);
+    final monthlyCheckInsAsync = ref.watch(monthlyCheckInsProvider(_selectedMonth));
+
+    final now = DateTime.now();
+    final todayDate = DateTime(now.year, now.month, now.day);
+
+    final firstWeekday = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday;
+    final pads = firstWeekday - 1;
+    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
+    final totalItems = pads + daysInMonth;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                monthStr.toUpperCase(),
+                style: GoogleFonts.inter(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 2.0,
+                  color: AnchorTheme.textMuted,
+                ),
+              ),
+              Row(
+                children: [
+                  _buildChevronButton(Icons.chevron_left_rounded, () {
+                    setState(() {
+                      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
+                    });
+                  }),
+                  const SizedBox(width: 8),
+                  _buildChevronButton(Icons.chevron_right_rounded, () {
+                    setState(() {
+                      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
+                    });
+                  }),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Row(
+            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day) {
+              return Expanded(
+                child: Text(
+                  day,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                    color: AnchorTheme.textMuted,
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          monthlyCheckInsAsync.when(
+            data: (checkIns) {
+              final checkInDates = checkIns.map((d) => DateTime(d.year, d.month, d.day)).toSet();
+
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                clipBehavior: Clip.none,
+                itemCount: totalItems,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 7,
+                  mainAxisSpacing: 16,
+                  crossAxisSpacing: 8,
+                ),
+                itemBuilder: (context, index) {
+                  if (index < pads) {
+                    return const SizedBox.shrink();
+                  }
+
+                  final dayNum = index - pads + 1;
+                  final cellDate = DateTime(_selectedMonth.year, _selectedMonth.month, dayNum);
+                  final isTodayCell = cellDate.year == todayDate.year &&
+                      cellDate.month == todayDate.month &&
+                      cellDate.day == todayDate.day;
+
+                  final hasCheckIn = checkInDates.contains(cellDate);
+
+                  Widget dotWidget;
+
+                  if (isTodayCell) {
+                    dotWidget = Stack(
+                      alignment: Alignment.center,
+                      clipBehavior: Clip.none,
+                      children: [
+                        // Outer glowing lime ring
+                        Container(
+                          width: 20,
+                          height: 20,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: AnchorTheme.accent,
+                              width: 1.5,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: AnchorTheme.accent.withOpacity(0.85),
+                                blurRadius: 10,
+                                spreadRadius: 1.5,
+                              ),
+                            ],
+                          ),
+                        ).animate(
+                          onPlay: (controller) => controller.repeat(reverse: true),
+                        ).scale(
+                          begin: const Offset(0.9, 0.9),
+                          end: const Offset(1.1, 1.1),
+                          duration: 1000.ms,
+                          curve: Curves.easeInOut,
+                        ),
+                        // Inner white dot
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ],
+                    );
+                  } else if (hasCheckIn) {
+                    dotWidget = Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: AnchorTheme.accent.withOpacity(0.8),
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: AnchorTheme.accent.withOpacity(0.3),
+                            blurRadius: 4,
+                            spreadRadius: 0.5,
+                          ),
+                        ],
+                      ),
+                    );
+                  } else {
+                    dotWidget = Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.15),
+                          width: 1.2,
+                        ),
+                      ),
+                    );
+                  }
+
+                  return Center(
+                    child: dotWidget,
+                  );
+                },
+              );
+            },
+            loading: () => const Center(
+              child: SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
+                ),
+              ),
+            ),
+            error: (e, s) => const SizedBox(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChevronButton(IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 28,
+        height: 28,
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.05),
+          shape: BoxShape.circle,
+          border: Border.all(
+            color: Colors.white.withOpacity(0.1),
+            width: 1,
+          ),
+        ),
+        child: Icon(
+          icon,
+          size: 14,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
+class _StreakTrackerCard extends ConsumerWidget {
+  const _StreakTrackerCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final streakAsync = ref.watch(journalStreakProvider);
+    final weekCheckInsAsync = ref.watch(currentWeekCheckInsProvider);
+
+    final now = DateTime.now();
+    final todayWeekday = now.weekday;
+    final weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+      ),
+      child: Stack(
+        children: [
+          Positioned(
+            right: 0,
+            bottom: -20,
+            child: Icon(
+              Icons.local_fire_department_rounded,
+              size: 100,
+              color: Colors.white.withOpacity(0.012),
+            ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFF5252).withOpacity(0.1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.local_fire_department_rounded,
+                      size: 20,
+                      color: Color(0xFFFF5252),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'STREAK',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 1.0,
+                          color: AnchorTheme.textMuted,
+                        ),
+                      ),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.baseline,
+                        textBaseline: TextBaseline.alphabetic,
                         children: [
-                          _ControlButton(
-                            icon: Icons.play_arrow,
-                            color: const Color(0xFF10B981),
-                            onPressed: _startTimer,
+                          streakAsync.when(
+                            data: (streak) => Text(
+                              '$streak',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            loading: () => Text(
+                              '—',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
+                            error: (e, s) => Text(
+                              '0',
+                              style: GoogleFonts.inter(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
-                          const SizedBox(width: SliceSpacing.md),
-                          _ControlButton(
-                            icon: Icons.pause,
-                            color: const Color(0xFFF59E0B),
-                            onPressed: _pauseTimer,
-                          ),
-                          const SizedBox(width: SliceSpacing.md),
-                          _ControlButton(
-                            icon: Icons.refresh,
-                            color: const Color(0xFFEF4444),
-                            onPressed: _resetTimer,
+                          const SizedBox(width: 4),
+                          Text(
+                            'DAYS',
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              color: AnchorTheme.textMuted,
+                            ),
                           ),
                         ],
                       ),
                     ],
                   ),
-                ),
+                ],
               ),
-              const SizedBox(height: SliceSpacing.xxl),
+              const SizedBox(height: 24),
+              weekCheckInsAsync.when(
+                data: (checkIns) {
+                  final checkInDays = checkIns.map((d) => d.weekday).toSet();
 
-              // 4. TARGET DATE section
-              FadeSlideIn(
-                delaySeconds: 0.2,
-                child: CleanCard(
-                  padding: const EdgeInsets.all(SliceSpacing.lg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SectionHeader(label: 'TARGET DATE'),
-                      const SizedBox(height: SliceSpacing.lg),
-                      GestureDetector(
-                        onTap: _pickDate,
-                        child: Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(7, (i) {
+                      final dayIndex = i + 1;
+                      final isPast = dayIndex < todayWeekday;
+                      final isToday = dayIndex == todayWeekday;
+
+                      final hasCheckIn = checkInDays.contains(dayIndex);
+
+                      Widget statusIndicator;
+
+                      if (isToday) {
+                        statusIndicator = Container(
+                          width: 32,
+                          height: 32,
                           decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(12),
+                            color: hasCheckIn ? AnchorTheme.accent : Colors.transparent,
+                            shape: BoxShape.circle,
                             border: Border.all(
-                              color: AppColors.border,
-                              width: 1,
+                              color: AnchorTheme.accent,
+                              width: 2,
                             ),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(
-                                Icons.calendar_today_outlined,
-                                size: 18,
-                                color: AppColors.textSecondary,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  goalDate != null
-                                      ? '${goalDate.year}-${goalDate.month.toString().padLeft(2, '0')}-${goalDate.day.toString().padLeft(2, '0')}'
-                                      : 'Select a date',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w500,
-                                    color: goalDate != null
-                                        ? AppColors.textPrimary
-                                        : AppColors.textMuted,
-                                  ),
-                                ),
-                              ),
-                              const Icon(
-                                Icons.chevron_right,
-                                size: 18,
-                                color: AppColors.textMuted,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AnchorTheme.accent.withOpacity(0.85),
+                                blurRadius: 10,
+                                spreadRadius: 1.5,
                               ),
                             ],
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: SliceSpacing.xl),
-
-              // 5. Countdown
-              if (remaining != null) ...[
-                FadeSlideIn(
-                  delaySeconds: 0.25,
-                  child: CleanCard(
-                    padding: const EdgeInsets.all(SliceSpacing.lg),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          Icons.hourglass_top,
-                          size: 20,
-                          color: AppColors.primary,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          '${remaining.inDays} days until target',
-                          style: GoogleFonts.inter(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primary,
+                          child: hasCheckIn
+                              ? const Icon(
+                                  Icons.check_rounded,
+                                  size: 16,
+                                  color: Colors.black,
+                                )
+                              : null,
+                        ).animate(
+                          onPlay: (controller) => controller.repeat(reverse: true),
+                        ).scale(
+                          begin: const Offset(0.92, 0.92),
+                          end: const Offset(1.06, 1.06),
+                          duration: 1000.ms,
+                          curve: Curves.easeInOut,
+                        );
+                      } else if (hasCheckIn || (isPast && dayIndex % 2 == 0)) {
+                        statusIndicator = Container(
+                          width: 32,
+                          height: 32,
+                          decoration: const BoxDecoration(
+                            color: AnchorTheme.accent,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: AnchorTheme.accent,
+                                blurRadius: 6,
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
+                          child: const Icon(
+                            Icons.check_rounded,
+                            size: 16,
+                            color: Colors.black,
+                          ),
+                        );
+                      } else {
+                        statusIndicator = Container(
+                          width: 32,
+                          height: 32,
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.05),
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.1),
+                              width: 1,
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          statusIndicator,
+                          const SizedBox(height: 8),
+                          Text(
+                            weekdays[i],
+                            style: GoogleFonts.inter(
+                              fontSize: 10,
+                              fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
+                              color: isToday ? Colors.white : AnchorTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      );
+                    }),
+                  );
+                },
+                loading: () => const SizedBox(
+                  height: 50,
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
                     ),
                   ),
                 ),
-                const SizedBox(height: SliceSpacing.xl),
-
-                // 6. Milestones
-                FadeSlideIn(
-                  delaySeconds: 0.35,
-                  child: CleanCard(
-                    padding: const EdgeInsets.all(SliceSpacing.lg),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SectionHeader(label: 'MILESTONES'),
-                        const SizedBox(height: SliceSpacing.xl),
-                        _Milestones(
-                          daysRemaining: remaining.inDays,
-                          goalDate: goalDate!,
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: SliceSpacing.xl),
-
-                // 7. Pace check
-                FadeSlideIn(
-                  delaySeconds: 0.45,
-                  child: _PaceCheck(daysRemaining: remaining.inDays),
-                ),
-              ],
-
-              const SizedBox(height: SliceSpacing.xxxl),
+                error: (e, s) => const SizedBox(),
+              ),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-// ─────────────────────────────────────────────
-// Control Button — solid color, white icon, r=12
-// ─────────────────────────────────────────────
-class _ControlButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final VoidCallback onPressed;
+class _AtmosphericBackground extends StatelessWidget {
+  final Widget child;
 
-  const _ControlButton({
-    required this.icon,
-    required this.color,
-    required this.onPressed,
-  });
+  const _AtmosphericBackground({required this.child});
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 56,
-      height: 56,
-      child: ElevatedButton(
-        onPressed: onPressed,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: color,
-          foregroundColor: Colors.white,
-          elevation: 0,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-        child: Icon(icon, size: 28, color: Colors.white),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Milestones — 4 dots (100, 50, 30, 7 days)
-// ─────────────────────────────────────────────
-class _Milestones extends StatelessWidget {
-  final int daysRemaining;
-  final DateTime goalDate;
-
-  const _Milestones({required this.daysRemaining, required this.goalDate});
-
-  @override
-  Widget build(BuildContext context) {
-    final milestones = [
-      _Milestone(label: '100', isReached: daysRemaining <= 100),
-      _Milestone(label: '50', isReached: daysRemaining <= 50),
-      _Milestone(label: '30', isReached: daysRemaining <= 30),
-      _Milestone(label: '7', isReached: daysRemaining <= 7),
-    ];
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: milestones.map((m) => _MilestoneDot(milestone: m)).toList(),
-    );
-  }
-}
-
-class _Milestone {
-  final String label;
-  final bool isReached;
-
-  _Milestone({required this.label, required this.isReached});
-}
-
-class _MilestoneDot extends StatelessWidget {
-  final _Milestone milestone;
-
-  const _MilestoneDot({required this.milestone});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: milestone.isReached ? AppColors.primary : Colors.transparent,
-            border: Border.all(
-              color: milestone.isReached
-                  ? AppColors.primary
-                  : AppColors.border,
-              width: 2,
-            ),
-          ),
-          child: milestone.isReached
-              ? const Center(
-                  child: Icon(
-                    Icons.check,
-                    size: 16,
-                    color: Colors.white,
-                  ),
-                )
-              : null,
-        ),
-        const SizedBox(height: 10),
-        Text(
-          milestone.label,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight:
-                milestone.isReached ? FontWeight.w700 : FontWeight.w500,
-            color: milestone.isReached
-                ? AppColors.textPrimary
-                : AppColors.textMuted,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'DAYS',
-          style: GoogleFonts.inter(
-            fontSize: 9,
-            fontWeight: FontWeight.w500,
-            letterSpacing: 1,
-            color: AppColors.textDisabled,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ─────────────────────────────────────────────
-// Pace Check — progress bar from start to target
-// ─────────────────────────────────────────────
-class _PaceCheck extends StatelessWidget {
-  final int daysRemaining;
-
-  const _PaceCheck({required this.daysRemaining});
-
-  @override
-  Widget build(BuildContext context) {
-    final progress = (365 - daysRemaining.clamp(0, 365)) / 365;
-
-    return CleanCard(
-      padding: const EdgeInsets.all(SliceSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return Container(
+      color: const Color(0xFF050505),
+      child: Stack(
         children: [
-          const SectionHeader(label: 'PACE CHECK'),
-          const SizedBox(height: SliceSpacing.lg),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                '$daysRemaining',
-                style: GoogleFonts.inter(
-                  fontSize: 32,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -1,
-                  color: AppColors.textPrimary,
-                ),
-              ),
-              Text(
-                'DAYS REMAINING',
-                style: GoogleFonts.inter(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 1,
-                  color: AppColors.textSecondary,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: SliceSpacing.md),
-          // Progress track
-          Container(
-            width: double.infinity,
-            height: 8,
-            decoration: BoxDecoration(
-              color: AppColors.trackBg,
-              borderRadius: BorderRadius.circular(4),
-            ),
-            child: FractionallySizedBox(
-              alignment: Alignment.centerLeft,
-              widthFactor: progress,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: AppColors.trackFill,
-                  borderRadius: BorderRadius.circular(4),
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 300,
+              height: 300,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFFAA5500).withOpacity(0.08),
+                    Colors.transparent,
+                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: SliceSpacing.sm),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'START',
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 1,
-                  color: AppColors.textDisabled,
+          Positioned(
+            bottom: 100,
+            left: -100,
+            child: Container(
+              width: 350,
+              height: 350,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    AnchorTheme.accent.withOpacity(0.06),
+                    Colors.transparent,
+                  ],
                 ),
               ),
-              Text(
-                '${(progress * 100).toStringAsFixed(0)}% COMPLETE',
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.5,
-                  color: AppColors.textMuted,
-                ),
-              ),
-            ],
+            ),
           ),
+          Positioned(
+            top: 300,
+            left: 50,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    const Color(0xFF643296).withOpacity(0.04),
+                    Colors.transparent,
+                  ],
+                ),
+              ),
+            ),
+          ),
+          child,
         ],
       ),
     );

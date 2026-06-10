@@ -52,6 +52,13 @@ class SettingsDao extends DatabaseAccessor<AnchorDatabase> with _$SettingsDaoMix
     ));
   }
 
+  /// Update target/independence date immediately.
+  Future<void> updateTargetDate(DateTime date) {
+    return updateSettings(AppSettingsCompanion(
+      independenceDate: Value(date),
+    ));
+  }
+
   /// Set Todoist API token.
   Future<void> setTodoistToken(String token) {
     return updateSettings(AppSettingsCompanion(

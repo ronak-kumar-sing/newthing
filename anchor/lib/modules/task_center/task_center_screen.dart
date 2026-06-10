@@ -1,18 +1,53 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:drift/drift.dart' show Value;
-import '../../core/constants/app_colors.dart';
-import '../../core/widgets/slice_widgets.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/design/anchor_theme.dart';
 import '../../core/utils/date_extensions.dart';
 import '../../core/utils/task_extensions.dart';
 import '../../data/local/database.dart';
 import '../../providers/task_provider.dart';
-import '../../providers/database_provider.dart';
 import '../../providers/api_provider.dart';
+import '../../providers/database_provider.dart';
 
-/// Task Center — clean white professional design.
+// ─── Custom Bouncing Gesture Wrapper ───────────────────────────────────────
+class BouncingButton extends StatefulWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  const BouncingButton({super.key, required this.child, this.onTap});
+
+  @override
+  State<BouncingButton> createState() => _BouncingButtonState();
+}
+
+class _BouncingButtonState extends State<BouncingButton> {
+  bool _isPressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) {
+        if (widget.onTap != null) setState(() => _isPressed = true);
+      },
+      onTapUp: (_) {
+        if (widget.onTap != null) setState(() => _isPressed = false);
+      },
+      onTapCancel: () {
+        if (widget.onTap != null) setState(() => _isPressed = false);
+      },
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _isPressed ? 0.97 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: widget.child,
+      ),
+    );
+  }
+}
+
+/// Task Center — matches Stitch screen "Task Center" exactly.
 /// All tasks in one place with Todoist sync.
 class TaskCenterScreen extends ConsumerStatefulWidget {
   const TaskCenterScreen({super.key});
@@ -43,331 +78,456 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
     final activeTasksAsync = ref.watch(activeTasksProvider);
     final overdueAsync = ref.watch(overdueTasksProvider);
     final todayAsync = ref.watch(tasksDueTodayProvider);
+    final completedTasksAsync = ref.watch(completedTasksProvider);
+
+    final overdueCount = overdueAsync.valueOrNull?.length ?? 0;
+    final todayCount = todayAsync.valueOrNull?.length ?? 0;
+    final activeCount = activeTasksAsync.valueOrNull?.length ?? 0;
+    final upcomingCount = activeCount - todayCount;
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AnchorTheme.backgroundDeep,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+            // ── Top App Bar ──
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              decoration: const BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: AnchorTheme.surfaceVariant, width: 1),
+                ),
+              ),
               child: Row(
                 children: [
+                  const Icon(
+                    Icons.grid_view,
+                    color: AnchorTheme.textPrimary,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
                   Text(
-                    'Tasks',
+                    'Task Center',
                     style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.textPrimary,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AnchorTheme.textPrimary,
                     ),
                   ),
                   const Spacer(),
-                  _FilterDropdown(
-                    value: _filterLabel,
-                    onChanged: (value) {
-                      if (value != null) setState(() => _filterLabel = value);
-                    },
+                  // Synced indicator
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: AnchorTheme.accentContainer,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'SYNCED',
+                        style: GoogleFonts.inter(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w700,
+                          letterSpacing: 0.5,
+                          color: AnchorTheme.textSecondary,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  PrimaryButton(
-                    'Add Task',
-                    () => _showAddTaskDialog(context),
-                    icon: Icons.add,
-                    height: 44,
-                  ),
-                ],
-              ),
-            ),
-            // ── Stats row ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: StatPill(
-                      label: 'Overdue',
-                      count: overdueAsync.valueOrNull?.length ?? 0,
-                      color: AppColors.error,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StatPill(
-                      label: 'Due Today',
-                      count: todayAsync.valueOrNull?.length ?? 0,
-                      color: AppColors.info,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: StatPill(
-                      label: 'Upcoming',
-                      count: (activeTasksAsync.valueOrNull?.length ?? 0) -
-                          (todayAsync.valueOrNull?.length ?? 0),
-                      color: AppColors.primary,
-                    ),
+                  const SizedBox(width: 16),
+                  const Icon(
+                    Icons.notifications,
+                    color: AnchorTheme.textSecondary,
+                    size: 22,
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            // ── Tab bar ──
-            _TaskTabBar(controller: _tabController),
-            // ── Tab content (Expanded so ListView inside can scroll) ──
+
+            // Main scrollable canvas containing bento statistics and list
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _TaskList(
-                    tasksAsync: activeTasksAsync,
-                    emptyMessage: 'No active tasks yet. Add your first task.',
-                    onComplete: (task) => _completeTask(task),
+                  const SizedBox(height: 16),
+                  // ── Stats row ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          _buildStatPill(
+                            label: 'Overdue',
+                            count: overdueCount,
+                            bgColor: AnchorTheme.statusRed.withOpacity(0.15),
+                            borderColor: AnchorTheme.statusRed.withOpacity(0.3),
+                            textColor: AnchorTheme.statusRed,
+                            hasDot: true,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatPill(
+                            label: 'Due Today',
+                            count: todayCount,
+                            bgColor: AnchorTheme.accentContainer.withOpacity(0.15),
+                            borderColor: AnchorTheme.accentContainer.withOpacity(0.3),
+                            textColor: AnchorTheme.accent,
+                            hasDot: true,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatPill(
+                            label: 'Upcoming',
+                            count: upcomingCount >= 0 ? upcomingCount : 0,
+                            bgColor: AnchorTheme.surfaceContainerHigh,
+                            borderColor: AnchorTheme.surfaceVariant,
+                            textColor: AnchorTheme.textSecondary,
+                            hasDot: false,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  _TaskList(
-                    tasksAsync: todayAsync,
-                    emptyMessage: 'Nothing due today. Enjoy the breathing room.',
-                    onComplete: (task) => _completeTask(task),
+
+                  const SizedBox(height: 16),
+
+                  // ── Filter + Add Row ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        PopupMenuButton<String>(
+                          onSelected: (val) => setState(() => _filterLabel = val),
+                          color: AnchorTheme.cardBgHigh,
+                          borderRadius: BorderRadius.circular(12),
+                          itemBuilder: (context) => ['All', 'Academic', 'Personal', 'Project', 'Habit', 'Placement']
+                              .map((l) => PopupMenuItem(
+                                    value: l,
+                                    child: Text(
+                                      l,
+                                      style: GoogleFonts.inter(
+                                        fontSize: 14,
+                                        color: AnchorTheme.textPrimary,
+                                      ),
+                                    ),
+                                  ))
+                              .toList(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AnchorTheme.surfaceContainerHigh,
+                              border: Border.all(color: AnchorTheme.surfaceVariant, width: 1),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _filterLabel,
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: AnchorTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(
+                                  Icons.arrow_drop_down,
+                                  size: 16,
+                                  color: AnchorTheme.textPrimary,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        BouncingButton(
+                          onTap: () => _showAddTaskBottomSheet(context),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AnchorTheme.accentContainer,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.add,
+                                  size: 16,
+                                  color: AnchorTheme.onAccent,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Add Task',
+                                  style: GoogleFonts.inter(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                    color: AnchorTheme.onAccent,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  _CompletedTasksList(),
+
+                  const SizedBox(height: 16),
+
+                  // ── Tab Bar ──
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Container(
+                      decoration: const BoxDecoration(
+                        border: Border(
+                          bottom: BorderSide(color: AnchorTheme.surfaceVariant, width: 1),
+                        ),
+                      ),
+                      child: TabBar(
+                        controller: _tabController,
+                        indicator: const UnderlineTabIndicator(
+                          borderSide: BorderSide(color: AnchorTheme.accent, width: 2),
+                        ),
+                        labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold),
+                        unselectedLabelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal),
+                        labelColor: AnchorTheme.textPrimary,
+                        unselectedLabelColor: AnchorTheme.textMuted,
+                        dividerColor: Colors.transparent,
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        tabs: const [
+                          Tab(text: 'Active'),
+                          Tab(text: 'Today'),
+                          Tab(text: 'Completed'),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // ── Tab Content ──
+                  Expanded(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _TaskList(
+                          tasksAsync: activeTasksAsync,
+                          emptyMessage: 'No active tasks yet. Add your first task.',
+                          filterLabel: _filterLabel,
+                          onAction: (task) => _completeTask(task),
+                        ),
+                        _TaskList(
+                          tasksAsync: todayAsync,
+                          emptyMessage: 'Nothing due today. Enjoy the breathing room.',
+                          filterLabel: _filterLabel,
+                          onAction: (task) => _completeTask(task),
+                        ),
+                        _TaskList(
+                          tasksAsync: completedTasksAsync,
+                          emptyMessage: 'Completed tasks will appear here.',
+                          filterLabel: _filterLabel,
+                          onAction: (task) => _reopenTask(task),
+                          isCompletedList: true,
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
           ],
-        ),
+        ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showAddTaskDialog(context),
-        backgroundColor: AppColors.primary,
-        elevation: 2,
-        child: const Icon(Icons.add, color: Colors.white),
+    );
+  }
+
+  Widget _buildStatPill({
+    required String label,
+    required int count,
+    required Color bgColor,
+    required Color borderColor,
+    required Color textColor,
+    required bool hasDot,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: Border.all(color: borderColor, width: 1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasDot) ...[
+            Container(
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: textColor,
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            '$count $label'.toUpperCase(),
+            style: GoogleFonts.inter(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 0.5,
+              color: textColor,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   void _completeTask(Task task) async {
     if (task.todoistId != null) {
-      await ref.read(todoistApiProvider).closeTask(task.todoistId!);
+      try {
+        await ref.read(todoistApiProvider).closeTask(task.todoistId!);
+      } catch (_) {}
     }
-
     await ref.read(taskDaoProvider).completeTask(task.id);
 
     ref.invalidate(activeTasksProvider);
     ref.invalidate(overdueTasksProvider);
     ref.invalidate(tasksDueTodayProvider);
+    ref.invalidate(completedTasksProvider);
     ref.invalidate(topTasksProvider);
 
-    if (mounted) {
-      _showSnackBar('Task completed');
-    }
+    _showSnackBar('Task completed');
+  }
+
+  void _reopenTask(Task task) async {
+    await ref.read(taskDaoProvider).reopenTask(task.id);
+
+    ref.invalidate(activeTasksProvider);
+    ref.invalidate(overdueTasksProvider);
+    ref.invalidate(tasksDueTodayProvider);
+    ref.invalidate(completedTasksProvider);
+    ref.invalidate(topTasksProvider);
+
+    _showSnackBar('Task reopened');
   }
 
   void _showSnackBar(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: AnchorTheme.cardBgHigh,
         duration: const Duration(seconds: 1),
         content: Text(
           message,
           style: GoogleFonts.inter(
             fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            color: AnchorTheme.textPrimary,
           ),
         ),
       ),
     );
   }
 
-  void _showAddTaskDialog(BuildContext context) {
-    showDialog(
+  void _showAddTaskBottomSheet(BuildContext context) {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => const _AddTaskDialog(),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const _AddTaskBottomSheet(),
     );
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Filter Dropdown
-// ──────────────────────────────────────────────────────────────
-
-class _FilterDropdown extends StatelessWidget {
-  final String value;
-  final ValueChanged<String?> onChanged;
-
-  const _FilterDropdown({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.border,
-          width: 1,
-        ),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          dropdownColor: AppColors.card,
-          borderRadius: BorderRadius.circular(8),
-          icon: const Icon(Icons.keyboard_arrow_down,
-              color: AppColors.textMuted, size: 18),
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-          items: ['All', 'Academic', 'Personal', 'Project', 'Habit', 'Placement']
-              .map((label) => DropdownMenuItem(
-                    value: label,
-                    child: Text(label),
-                  ))
-              .toList(),
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Tab Bar
-// ──────────────────────────────────────────────────────────────
-
-class _TaskTabBar extends StatelessWidget {
-  final TabController controller;
-
-  const _TaskTabBar({required this.controller});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.border,
-            width: 1,
-          ),
-        ),
-      ),
-      child: TabBar(
-        controller: controller,
-        indicator: const UnderlineTabIndicator(
-          borderSide: BorderSide(
-            color: AppColors.primary,
-            width: 2,
-          ),
-        ),
-        labelStyle: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-        ),
-        labelColor: AppColors.primary,
-        unselectedLabelColor: AppColors.textMuted,
-        dividerColor: Colors.transparent,
-        tabs: const [
-          Tab(text: 'Active'),
-          Tab(text: 'Today'),
-          Tab(text: 'Completed'),
-        ],
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Task List
-// ──────────────────────────────────────────────────────────────
-
+// ─── Task List View ────────────────────────────────────────────────────────
 class _TaskList extends StatelessWidget {
   final AsyncValue<List<Task>> tasksAsync;
   final String emptyMessage;
-  final void Function(Task) onComplete;
+  final String filterLabel;
+  final void Function(Task) onAction;
+  final bool isCompletedList;
 
   const _TaskList({
     required this.tasksAsync,
     required this.emptyMessage,
-    required this.onComplete,
+    required this.filterLabel,
+    required this.onAction,
+    this.isCompletedList = false,
   });
 
   @override
   Widget build(BuildContext context) {
     return tasksAsync.when(
       data: (tasks) {
-        if (tasks.isEmpty) {
+        final filteredTasks = filterLabel == 'All'
+            ? tasks
+            : tasks.where((t) => t.label?.toLowerCase() == filterLabel.toLowerCase()).toList();
+
+        if (filteredTasks.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
-                  Icons.inbox_outlined,
-                  size: 48,
-                  color: AppColors.textMuted,
-                ),
+                const Icon(Icons.inbox_outlined, size: 48, color: AnchorTheme.textMuted),
                 const SizedBox(height: 16),
-                Text(
-                  emptyMessage,
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    color: AppColors.textMuted,
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  child: Text(
+                    emptyMessage,
+                    style: GoogleFonts.inter(fontSize: 14, color: AnchorTheme.textMuted),
+                    textAlign: TextAlign.center,
                   ),
-                  textAlign: TextAlign.center,
                 ),
               ],
             ),
-          );
+          ).animate().fadeIn(duration: 200.ms);
         }
+
         return ListView.builder(
-          padding: const EdgeInsets.all(24),
-          itemCount: tasks.length,
+          padding: const EdgeInsets.all(20).copyWith(bottom: 100),
+          itemCount: filteredTasks.length,
           itemBuilder: (context, index) {
-            final task = tasks[index];
-            return _TaskItem(
-              task: task,
-              onComplete: () => onComplete(task),
-            );
+            final task = filteredTasks[index];
+            return BouncingButton(
+              child: _TaskItem(
+                task: task,
+                onAction: () => onAction(task),
+                isCompleted: isCompletedList,
+              ),
+            ).animate(delay: (index * 80).ms)
+             .fadeIn(duration: 300.ms)
+             .slideY(begin: 0.08, end: 0, duration: 300.ms, curve: Curves.easeOut);
           },
         );
       },
-      loading: () => const Center(
-        child: CircularProgressIndicator(
-          color: AppColors.primary,
-        ),
-      ),
+      loading: () => const Center(child: CircularProgressIndicator(color: AnchorTheme.accent)),
       error: (_, __) => Center(
         child: Text(
           'Error loading tasks',
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            color: AppColors.error,
-          ),
+          style: GoogleFonts.inter(fontSize: 14, color: AnchorTheme.statusRed),
         ),
       ),
     );
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Task Item (CleanCard)
-// ──────────────────────────────────────────────────────────────
-
+// ─── Task Item Card ───────────────────────────────────────────────────────
 class _TaskItem extends StatelessWidget {
   final Task task;
-  final VoidCallback onComplete;
+  final VoidCallback onAction;
+  final bool isCompleted;
 
   const _TaskItem({
     required this.task,
-    required this.onComplete,
+    required this.onAction,
+    required this.isCompleted,
   });
 
   @override
@@ -381,220 +541,210 @@ class _TaskItem extends StatelessWidget {
       } else if (task.isDueToday) {
         dueText = 'Today';
       } else {
-        final days = task.dueDate!.difference(DateTime.now()).inDays;
-        dueText = days == 1 ? 'Tomorrow' : 'In $days days';
+        final days = task.dueDate!.difference(DateTime.now()).inDays + 1;
+        if (days == 1) {
+          dueText = 'Tomorrow';
+        } else {
+          dueText = task.dueDate!.toIsoDate;
+        }
       }
     }
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: CleanCard(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            // ── Completion checkbox ──
-            InkWell(
-              onTap: onComplete,
-              borderRadius: BorderRadius.circular(6),
-              child: Container(
-                width: 24,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  border: Border.all(
-                    color: priorityColor,
-                    width: 2,
-                  ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Center(
-                  child: Icon(
-                    Icons.check,
-                    size: 14,
-                    color: priorityColor,
-                  ),
-                ),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+        borderRadius: BorderRadius.circular(AnchorTheme.radiusCard),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Custom checkbox (border circle)
+          GestureDetector(
+            onTap: onAction,
+            child: Container(
+              margin: const EdgeInsets.only(top: 2),
+              width: 20,
+              height: 20,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isCompleted ? priorityColor.withOpacity(0.2) : Colors.transparent,
+                border: Border.all(color: priorityColor, width: 2),
               ),
-            ),
-            const SizedBox(width: 14),
-            // ── Task content ──
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    task.title,
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  if (task.description != null && task.description!.isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4),
-                      child: Text(
-                        task.description!,
-                        style: GoogleFonts.inter(
-                          fontSize: 12,
-                          color: AppColors.textSecondary,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: [
-                      if (task.label != null)
-                        _TagChip(
-                          label: task.label!,
-                          color: AppColors.primary,
-                        ),
-                      if (dueText != null)
-                        _TagChip(
-                          label: dueText,
-                          color: task.isOverdue ? AppColors.error : AppColors.textSecondary,
-                        ),
-                      _TagChip(
-                        label: task.priorityLabel,
+              child: isCompleted
+                  ? Center(
+                      child: Icon(
+                        Icons.check,
+                        size: 12,
                         color: priorityColor,
                       ),
-                    ],
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(width: 14),
+          // Task content
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  task.title,
+                  style: GoogleFonts.inter(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
+                if (task.description != null && task.description!.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    task.description!,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AnchorTheme.textSecondary,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ],
-              ),
-            ),
-            // ── Actions ──
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _IconButton(
-                  icon: Icons.center_focus_strong,
-                  color: AppColors.info,
-                  tooltip: 'Focus Mode',
-                  onPressed: () => context.push('/focus'),
-                ),
-                _IconButton(
-                  icon: Icons.more_vert,
-                  color: AppColors.textMuted,
-                  tooltip: 'More',
-                  onPressed: () {},
+                const SizedBox(height: 10),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (task.label != null) _buildCategoryChip(task.label!),
+                    if (dueText != null) _buildDueDateChip(task, dueText),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Color _priorityColor(int priority) {
     switch (priority) {
-      case 1:
-        return AppColors.error;
-      case 2:
-        return AppColors.warning;
-      case 3:
-        return AppColors.info;
-      default:
-        return AppColors.textMuted;
+      case 1: return const Color(0xFFFFB4AB);
+      case 2: return const Color(0xFFFFD2AB);
+      case 3: return const Color(0xFFBFE9FE);
+      default: return const Color(0xFFC8C6C5);
     }
   }
-}
 
-// ──────────────────────────────────────────────────────────────
-// Tag Chip
-// ──────────────────────────────────────────────────────────────
+  Widget _buildCategoryChip(String category) {
+    IconData icon;
+    Color textColor;
+    Color bgColor;
+    Color borderColor;
 
-class _TagChip extends StatelessWidget {
-  final String label;
-  final Color color;
+    switch (category.toLowerCase()) {
+      case 'academic':
+        icon = Icons.school_outlined;
+        textColor = const Color(0xFFB088F9);
+        bgColor = const Color(0xFF2A1B3D);
+        borderColor = const Color(0xFF402A5C);
+        break;
+      case 'personal':
+        icon = Icons.person_outline;
+        textColor = const Color(0xFF5EEAD4);
+        bgColor = const Color(0xFF1A3A3A);
+        borderColor = const Color(0xFF2A5A5A);
+        break;
+      case 'project':
+        icon = Icons.work_outline;
+        textColor = const Color(0xFF60A5FA);
+        bgColor = const Color(0xFF1A263A);
+        borderColor = const Color(0xFF2A3D5A);
+        break;
+      case 'habit':
+        icon = Icons.star_outline;
+        textColor = const Color(0xFF34D399);
+        bgColor = const Color(0xFF1E352F);
+        borderColor = const Color(0xFF2E4F44);
+        break;
+      case 'placement':
+        icon = Icons.trending_up;
+        textColor = const Color(0xFFFB923C);
+        bgColor = const Color(0xFF3B2C1E);
+        borderColor = const Color(0xFF5B422E);
+        break;
+      default:
+        icon = Icons.label_outline;
+        textColor = AnchorTheme.textSecondary;
+        bgColor = AnchorTheme.surfaceContainerHigh;
+        borderColor = AnchorTheme.surfaceVariant;
+    }
 
-  const _TagChip({required this.label, required this.color});
+    return _TagChip(
+      label: category,
+      icon: icon,
+      textColor: textColor,
+      bgColor: bgColor,
+      borderColor: borderColor,
+    );
+  }
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.inter(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: color,
-        ),
-      ),
+  Widget _buildDueDateChip(Task task, String dueText) {
+    final isAlert = task.isOverdue || task.isDueToday;
+    final textColor = isAlert ? const Color(0xFFFFB4AB) : AnchorTheme.textSecondary;
+    final bgColor = isAlert ? const Color(0xFFFFB4AB).withOpacity(0.15) : AnchorTheme.surfaceContainerHigh;
+    final borderColor = isAlert ? const Color(0xFFFFB4AB).withOpacity(0.3) : AnchorTheme.surfaceVariant;
+
+    return _TagChip(
+      label: dueText,
+      icon: Icons.calendar_today_outlined,
+      textColor: textColor,
+      bgColor: bgColor,
+      borderColor: borderColor,
     );
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Icon Button
-// ──────────────────────────────────────────────────────────────
+// ─── Styled Tag Chip Component ─────────────────────────────────────────────
+class _TagChip extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color textColor;
+  final Color bgColor;
+  final Color borderColor;
 
-class _IconButton extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String tooltip;
-  final VoidCallback onPressed;
-
-  const _IconButton({
-    required this.icon,
-    required this.color,
-    required this.tooltip,
-    required this.onPressed,
+  const _TagChip({
+    required this.label,
+    this.icon,
+    required this.textColor,
+    required this.bgColor,
+    required this.borderColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Tooltip(
-      message: tooltip,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          width: 32,
-          height: 32,
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(icon, color: color, size: 16),
-        ),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(AnchorTheme.radiusTag),
+        border: Border.all(color: borderColor, width: 1),
       ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Completed Tasks List
-// ──────────────────────────────────────────────────────────────
-
-class _CompletedTasksList extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
+      child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            Icons.check_circle_outline,
-            size: 48,
-            color: AppColors.textMuted,
-          ),
-          const SizedBox(height: 16),
+          if (icon != null) ...[
+            Icon(icon, size: 12, color: textColor),
+            const SizedBox(width: 4),
+          ],
           Text(
-            'Completed tasks will appear here.',
+            label.toUpperCase(),
             style: GoogleFonts.inter(
-              fontSize: 14,
-              color: AppColors.textMuted,
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+              color: textColor,
             ),
           ),
         ],
@@ -603,18 +753,15 @@ class _CompletedTasksList extends StatelessWidget {
   }
 }
 
-// ──────────────────────────────────────────────────────────────
-// Add Task Dialog
-// ──────────────────────────────────────────────────────────────
-
-class _AddTaskDialog extends ConsumerStatefulWidget {
-  const _AddTaskDialog();
+// ─── Add Task Bottom Sheet Modal ──────────────────────────────────────────
+class _AddTaskBottomSheet extends ConsumerStatefulWidget {
+  const _AddTaskBottomSheet();
 
   @override
-  ConsumerState<_AddTaskDialog> createState() => _AddTaskDialogState();
+  ConsumerState<_AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
 }
 
-class _AddTaskDialogState extends ConsumerState<_AddTaskDialog> {
+class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   DateTime? _dueDate;
@@ -624,159 +771,247 @@ class _AddTaskDialogState extends ConsumerState<_AddTaskDialog> {
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: AppColors.card,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF111111),
+        border: Border(top: BorderSide(color: Color(0xFF252525), width: 1)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 480),
-        padding: const EdgeInsets.all(28),
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Dialog header ──
-              SectionHeader(
-                label: 'Add New Task',
-                color: AppColors.primary,
+      padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomInset),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Drag handle
+            Center(
+              child: Container(
+                width: 48,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: AnchorTheme.surfaceVariant,
+                  borderRadius: BorderRadius.circular(3),
+                ),
               ),
-              const SizedBox(height: 24),
-              // ── Title field ──
-              _CleanTextField(
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'New Task',
+              style: GoogleFonts.inter(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AnchorTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Title input
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF161616),
+                border: Border.all(color: const Color(0xFF252525), width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: TextField(
                 controller: _titleController,
-                hintText: 'Task title',
+                style: GoogleFonts.inter(fontSize: 15, color: Colors.white),
+                decoration: InputDecoration(
+                  hintText: 'Task Title',
+                  hintStyle: GoogleFonts.inter(fontSize: 15, color: AnchorTheme.textMuted),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
               ),
-              const SizedBox(height: 16),
-              // ── Description field ──
-              _CleanTextField(
+            ),
+            const SizedBox(height: 12),
+            // Description input
+            Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFF161616),
+                border: Border.all(color: const Color(0xFF252525), width: 1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: TextField(
                 controller: _descriptionController,
-                hintText: 'Description (optional)',
-                maxLines: 2,
+                style: GoogleFonts.inter(fontSize: 14, color: AnchorTheme.textSecondary),
+                maxLines: 3,
+                decoration: InputDecoration(
+                  hintText: 'Description (optional)',
+                  hintStyle: GoogleFonts.inter(fontSize: 14, color: AnchorTheme.textMuted),
+                  border: InputBorder.none,
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
               ),
-              const SizedBox(height: 16),
-              // ── Priority & Label row ──
-              Row(
+            ),
+            const SizedBox(height: 16),
+            // Priority Row
+            Row(
+              children: [
+                Text(
+                  'Priority:',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    color: AnchorTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Row(
+                  children: [1, 2, 3, 4].map((p) {
+                    final isSelected = _priority == p;
+                    Color pColor;
+                    switch (p) {
+                      case 1: pColor = const Color(0xFFFFB4AB); break;
+                      case 2: pColor = const Color(0xFFFFD2AB); break;
+                      case 3: pColor = const Color(0xFFBFE9FE); break;
+                      default: pColor = const Color(0xFFC8C6C5);
+                    }
+                    return GestureDetector(
+                      onTap: () => setState(() => _priority = p),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        width: 24,
+                        height: 24,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: isSelected ? AnchorTheme.accent : pColor.withOpacity(0.4),
+                            width: isSelected ? 2.5 : 1.5,
+                          ),
+                        ),
+                        child: Center(
+                          child: Container(
+                            width: 12,
+                            height: 12,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: pColor,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Labels & Date selector row
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
                 children: [
-                  Expanded(
-                    child: _CleanDropdown<int>(
-                      value: _priority,
-                      label: 'Priority',
-                      items: const [
-                        DropdownMenuItem(value: 1, child: Text('High')),
-                        DropdownMenuItem(value: 2, child: Text('Medium')),
-                        DropdownMenuItem(value: 3, child: Text('Low')),
-                        DropdownMenuItem(value: 4, child: Text('Normal')),
-                      ],
-                      onChanged: (v) => setState(() => _priority = v ?? 4),
+                  // Label Selector Button
+                  PopupMenuButton<String>(
+                    onSelected: (val) => setState(() => _label = val),
+                    itemBuilder: (context) => ['Academic', 'Personal', 'Project', 'Habit', 'Placement']
+                        .map((l) => PopupMenuItem(value: l, child: Text(l)))
+                        .toList(),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF2A1B3D),
+                        border: Border.all(color: const Color(0xFF402A5C), width: 1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.school_outlined, size: 14, color: Color(0xFFB088F9)),
+                          const SizedBox(width: 4),
+                          Text(
+                            _label.toUpperCase(),
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: const Color(0xFFB088F9),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _CleanDropdown<String>(
-                      value: _label,
-                      label: 'Label',
-                      items: ['Academic', 'Personal', 'Project', 'Habit', 'Placement']
-                          .map((l) => DropdownMenuItem(value: l, child: Text(l)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _label = v ?? 'Academic'),
+                  const SizedBox(width: 8),
+                  // Due Date selector
+                  GestureDetector(
+                    onTap: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: _dueDate ?? DateTime.now(),
+                        firstDate: DateTime.now().subtract(const Duration(days: 365)),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        builder: (context, child) => Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: const ColorScheme.dark(
+                              primary: AnchorTheme.accent,
+                              onPrimary: AnchorTheme.onAccent,
+                              surface: AnchorTheme.cardBgHigh,
+                              onSurface: AnchorTheme.textPrimary,
+                            ),
+                          ),
+                          child: child!,
+                        ),
+                      );
+                      if (date != null) setState(() => _dueDate = date);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: AnchorTheme.surfaceContainerHigh,
+                        border: Border.all(color: AnchorTheme.surfaceVariant, width: 1),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.calendar_today_outlined, size: 14, color: AnchorTheme.textSecondary),
+                          const SizedBox(width: 4),
+                          Text(
+                            _dueDate != null ? _dueDate!.toIsoDate.toUpperCase() : 'DUE DATE',
+                            style: GoogleFonts.inter(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: AnchorTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              // ── Due date picker ──
-              InkWell(
-                onTap: () async {
-                  final date = await showDatePicker(
-                    context: context,
-                    initialDate: DateTime.now(),
-                    firstDate: DateTime.now(),
-                    lastDate: DateTime.now().add(const Duration(days: 365)),
-                    builder: (context, child) => Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.light(
-                          primary: AppColors.primary,
-                          surface: AppColors.card,
-                          onSurface: AppColors.textPrimary,
-                        ),
-                        dialogTheme: const DialogThemeData(
-                          backgroundColor: AppColors.card,
-                        ),
-                      ),
-                      child: child!,
-                    ),
-                  );
-                  if (date != null) setState(() => _dueDate = date);
-                },
-                child: _CleanFieldContainer(
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.calendar_today_outlined,
-                        size: 16,
-                        color: AppColors.textMuted,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Due Date',
-                              style: GoogleFonts.inter(
-                                fontSize: 11,
-                                color: AppColors.textMuted,
-                              ),
+            ),
+            const SizedBox(height: 24),
+            // Save button
+            SizedBox(
+              width: double.infinity,
+              height: 54,
+              child: BouncingButton(
+                onTap: _isSaving ? null : _saveTask,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: AnchorTheme.accentContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: _isSaving
+                        ? const CircularProgressIndicator(color: AnchorTheme.onAccent)
+                        : Text(
+                            'Add Task',
+                            style: GoogleFonts.inter(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: AnchorTheme.onAccent,
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              _dueDate?.toIsoDate ?? 'Select date',
-                              style: GoogleFonts.inter(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: _dueDate != null
-                                    ? AppColors.textPrimary
-                                    : AppColors.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(
-                        Icons.chevron_right,
-                        size: 18,
-                        color: AppColors.textMuted,
-                      ),
-                    ],
+                          ),
                   ),
                 ),
               ),
-              const SizedBox(height: 28),
-              // ── Actions ──
-              Row(
-                children: [
-                  Expanded(
-                    child: PrimaryButton(
-                      'Cancel',
-                      _isSaving ? null : () => Navigator.pop(context),
-                      height: 48,
-                      isOutlined: true,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: PrimaryButton(
-                      'Add',
-                      _isSaving ? null : _saveTask,
-                      height: 48,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -788,9 +1023,7 @@ class _AddTaskDialogState extends ConsumerState<_AddTaskDialog> {
       _showError('Task title is required');
       return;
     }
-
     setState(() => _isSaving = true);
-
     final taskId = 'local_${DateTime.now().millisecondsSinceEpoch}';
     final task = TasksCompanion(
       id: Value(taskId),
@@ -803,27 +1036,21 @@ class _AddTaskDialogState extends ConsumerState<_AddTaskDialog> {
       dueDate: _dueDate != null ? Value(_dueDate!) : const Value.absent(),
       source: const Value('local'),
     );
-
     await ref.read(taskDaoProvider).upsertTask(task);
-
     ref.invalidate(activeTasksProvider);
     ref.invalidate(overdueTasksProvider);
     ref.invalidate(tasksDueTodayProvider);
+    ref.invalidate(completedTasksProvider);
     ref.invalidate(topTasksProvider);
-
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          backgroundColor: AppColors.textPrimary,
+          backgroundColor: AnchorTheme.textPrimary,
           duration: const Duration(seconds: 1),
           content: Text(
             'Task added',
-            style: GoogleFonts.inter(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
+            style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
           ),
         ),
       );
@@ -833,139 +1060,12 @@ class _AddTaskDialogState extends ConsumerState<_AddTaskDialog> {
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        backgroundColor: AppColors.error,
+        backgroundColor: AnchorTheme.statusRed,
         content: Text(
           message,
-          style: GoogleFonts.inter(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
-          ),
+          style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
         ),
       ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _titleController.dispose();
-    _descriptionController.dispose();
-    super.dispose();
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Clean Text Field
-// ──────────────────────────────────────────────────────────────
-
-class _CleanTextField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hintText;
-  final int? maxLines;
-
-  const _CleanTextField({
-    required this.controller,
-    required this.hintText,
-    this.maxLines,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _CleanFieldContainer(
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines ?? 1,
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          color: AppColors.textPrimary,
-        ),
-        decoration: InputDecoration(
-          hintText: hintText,
-          hintStyle: GoogleFonts.inter(
-            fontSize: 14,
-            color: AppColors.textMuted,
-          ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          isDense: true,
-        ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Clean Dropdown
-// ──────────────────────────────────────────────────────────────
-
-class _CleanDropdown<T> extends StatelessWidget {
-  final T value;
-  final String label;
-  final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
-
-  const _CleanDropdown({
-    required this.value,
-    required this.label,
-    required this.items,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return _CleanFieldContainer(
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<T>(
-          value: value,
-          dropdownColor: AppColors.card,
-          borderRadius: BorderRadius.circular(8),
-          icon: const Icon(Icons.keyboard_arrow_down,
-              color: AppColors.textMuted, size: 18),
-          decoration: InputDecoration(
-            labelText: label,
-            labelStyle: GoogleFonts.inter(
-              fontSize: 11,
-              color: AppColors.textMuted,
-            ),
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-            isDense: true,
-          ),
-          style: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppColors.textPrimary,
-          ),
-          items: items,
-          onChanged: onChanged,
-        ),
-      ),
-    );
-  }
-}
-
-// ──────────────────────────────────────────────────────────────
-// Clean Field Container (shared wrapper)
-// ──────────────────────────────────────────────────────────────
-
-class _CleanFieldContainer extends StatelessWidget {
-  final Widget child;
-
-  const _CleanFieldContainer({required this.child});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.border,
-          width: 1,
-        ),
-      ),
-      child: child,
     );
   }
 }

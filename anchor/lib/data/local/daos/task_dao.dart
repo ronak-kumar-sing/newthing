@@ -122,6 +122,16 @@ class TaskDao extends DatabaseAccessor<AnchorDatabase> with _$TaskDaoMixin {
         .watch();
   }
 
+  /// Watch all completed tasks (reactive stream).
+  Stream<List<Task>> watchCompletedTasks() {
+    return (select(tasks)
+      ..where((t) => t.isCompleted.equals(true))
+      ..orderBy([
+        (t) => OrderingTerm(expression: t.completedAt, mode: OrderingMode.desc),
+      ]))
+        .watch();
+  }
+
   /// Get top 3 tasks for today based on priority and due date.
   Future<List<Task>> getTopTasksForToday() async {
     final dueToday = await getTasksDueToday();

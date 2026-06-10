@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' show Value;
-import '../../core/constants/app_colors.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../data/local/database.dart';
 import '../../data/remote/whatsapp_bridge_api.dart';
@@ -15,13 +16,13 @@ import '../../providers/task_provider.dart';
 
 const _uuid = Uuid();
 
-/// WhatsApp Digest — AI-summarized group chat highlights via Baileys.
+/// WhatsApp Digest — matches Stitch design "WhatsApp Digest"
+/// AI-summarized group chat highlights via Baileys.
 class WhatsappDigestScreen extends ConsumerStatefulWidget {
   const WhatsappDigestScreen({super.key});
 
   @override
-  ConsumerState<WhatsappDigestScreen> createState() =>
-      _WhatsappDigestScreenState();
+  ConsumerState<WhatsappDigestScreen> createState() => _WhatsappDigestScreenState();
 }
 
 class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
@@ -40,7 +41,7 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
     final bridgeAsync = ref.watch(waStatusProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AnchorTheme.background,
       body: SafeArea(
         child: Column(
           children: [
@@ -64,14 +65,12 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                                   fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: -0.5,
-                                  color: AppColors.textPrimary,
+                                  color: AnchorTheme.textPrimary,
                                 ),
                               ),
                               Text(
                                 'Auto-summarized from your groups',
-                                style: GoogleFonts.inter(
-                                    fontSize: 12,
-                                    color: AppColors.textMuted),
+                                style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.textMuted),
                               ),
                             ],
                           ),
@@ -83,9 +82,7 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                                   ? const SizedBox(
                                       width: 20,
                                       height: 20,
-                                      child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: AppColors.primary),
+                                      child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent),
                                     )
                                   : PrimaryButton(
                                       'Generate',
@@ -95,26 +92,25 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                                     )
                               : const SizedBox.shrink(),
                           loading: () => const SizedBox.shrink(),
-                          error: (_, _s) => const SizedBox.shrink(),
+                          error: (_, __) => const SizedBox.shrink(),
                         ),
                       ],
                     ),
                     const SizedBox(height: 14),
                     // Connection status banner
-                    _ConnectionBanner(
-                        onConnect: _startBridgeAndConnect),
+                    _ConnectionBanner(onConnect: _startBridgeAndConnect),
                   ],
                 ),
               ),
-            ),
+            ).animate().fade().slideY(begin: -0.1),
 
             // ── Tab Bar ──
             Container(
               margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
               decoration: BoxDecoration(
-                color: AppColors.surface,
+                color: AnchorTheme.cardBg,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.border),
+                border: Border.all(color: AnchorTheme.cardBorder),
               ),
               child: TabBar(
                 controller: _tabController,
@@ -124,19 +120,17 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                   Tab(text: 'Groups'),
                 ],
                 indicator: BoxDecoration(
-                  color: AppColors.primary,
+                  color: AnchorTheme.accent,
                   borderRadius: BorderRadius.circular(7),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
-                labelColor: Colors.white,
-                unselectedLabelColor: AppColors.textSecondary,
-                labelStyle: GoogleFonts.inter(
-                    fontSize: 13, fontWeight: FontWeight.w600),
-                unselectedLabelStyle:
-                    GoogleFonts.inter(fontSize: 13),
+                labelColor: AnchorTheme.background,
+                unselectedLabelColor: AnchorTheme.textSecondary,
+                labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+                unselectedLabelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
                 dividerColor: Colors.transparent,
               ),
-            ),
+            ).animate(delay: 100.ms).fade(),
 
             // ── Tab Views ──
             Expanded(
@@ -148,7 +142,7 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                   const _GroupsTab(),
                 ],
               ),
-            ),
+            ).animate(delay: 200.ms).fade().slideY(begin: 0.1),
           ],
         ),
       ),
@@ -160,31 +154,24 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
     final started = await bridge.startBridge();
     if (!started && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(
-          'Could not start WhatsApp bridge. Is Node.js installed?',
-          style: GoogleFonts.inter(fontSize: 13, color: Colors.white),
-        ),
-        backgroundColor: AppColors.error,
+        content: Text('Could not start WhatsApp bridge. Is Node.js installed?', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+        backgroundColor: AnchorTheme.statusRed,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ));
     }
     ref.invalidate(waStatusProvider);
   }
 
   Future<void> _generateDigest() async {
-    // Get tracked groups from DB
     final dao = ref.read(whatsappDaoProvider);
     final trackedGroups = await dao.getTrackedGroups();
 
     if (trackedGroups.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Select groups to track in the Groups tab first.',
-              style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
-          backgroundColor: AppColors.textSecondary,
+          content: Text('Select groups to track in the Groups tab first.', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+          backgroundColor: AnchorTheme.textSecondary,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ));
       }
       return;
@@ -196,7 +183,6 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
     final gemini = ref.read(geminiApiProvider);
 
     for (final group in trackedGroups) {
-      // Get messages since last digest
       final since = group.lastDigestAt;
       List<WAMessage> messages;
       if (since != null) {
@@ -207,15 +193,10 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
 
       if (messages.isEmpty) continue;
 
-      // Format messages for Gemini
-      final formatted = messages
-          .map((m) => '[${m.senderName}]: ${m.text}')
-          .join('\n');
-
+      final formatted = messages.map((m) => '[${m.senderName}]: ${m.text}').join('\n');
       final summary = await gemini.summarizeWhatsappMessages(formatted);
       if (summary == null) continue;
 
-      // Save to DB
       final digestId = _uuid.v4();
       await dao.insertDigest(WhatsappDigestsCompanion(
         id: Value(digestId),
@@ -226,10 +207,8 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
         digestDate: Value(DateTime.now()),
       ));
 
-      // Update group's last digest time
       await dao.updateGroupLastDigest(group.jid, DateTime.now());
 
-      // Optionally sync to Todoist
       final syncService = ref.read(syncServiceProvider);
       syncService.backupDigest(digestId);
     }
@@ -239,12 +218,9 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Digest generated ✓',
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
-        backgroundColor: AppColors.success,
+        content: Text('Digest generated ✓', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+        backgroundColor: AnchorTheme.statusGreen,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 2),
       ));
     }
   }
@@ -257,18 +233,15 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
       label: const Value('WhatsApp'),
       source: const Value('local'),
       isCompleted: const Value(false),
-      priority: const Value(2), // Medium priority
+      priority: const Value(2),
       createdAt: Value(DateTime.now()),
     ));
     ref.invalidate(activeTasksProvider);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Added to Task Center',
-            style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
-        backgroundColor: AppColors.success,
+        content: Text('Added to Task Center', style: GoogleFonts.inter(fontSize: 13, color: AnchorTheme.background)),
+        backgroundColor: AnchorTheme.accent,
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 2),
       ));
     }
   }
@@ -294,29 +267,25 @@ class _ConnectionBanner extends ConsumerWidget {
         if (status == WAStatus.connected) {
           return _StatusRow(
             icon: Icons.check_circle,
-            color: AppColors.success,
+            color: AnchorTheme.statusGreen,
             label: 'WhatsApp connected',
             trailing: TextButton(
               onPressed: () => ref.read(whatsappBridgeApiProvider).disconnect(),
-              child: Text('Disconnect',
-                  style:
-                      GoogleFonts.inter(fontSize: 12, color: AppColors.error)),
+              child: Text('Disconnect', style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.statusRed)),
             ),
           );
         }
         if (status == WAStatus.qrPending) {
           return _QrCodeDialog(ref: ref);
         }
-        // Disconnected
         return _StatusRow(
           icon: Icons.wifi_off,
-          color: AppColors.textMuted,
+          color: AnchorTheme.textMuted,
           label: 'Not connected',
           trailing: GestureDetector(
             onTap: onConnect,
             child: Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
               decoration: BoxDecoration(
                 color: const Color(0xFF25D366),
                 borderRadius: BorderRadius.circular(20),
@@ -324,37 +293,23 @@ class _ConnectionBanner extends ConsumerWidget {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Icon(Icons.qr_code_scanner,
-                      color: Colors.white, size: 14),
+                  const Icon(Icons.qr_code_scanner, color: Colors.white, size: 14),
                   const SizedBox(width: 6),
-                  Text('Connect WhatsApp',
-                      style: GoogleFonts.inter(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
+                  Text('Connect WhatsApp', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
                 ],
               ),
             ),
           ),
         );
       },
-      loading: () => const SizedBox(
-        height: 32,
-        child: Center(
-            child: SizedBox(
-                width: 16,
-                height: 16,
-                child:
-                    CircularProgressIndicator(strokeWidth: 2))),
-      ),
-      error: (_, _s) => _StatusRow(
+      loading: () => const SizedBox(height: 32, child: Center(child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent)))),
+      error: (_, __) => _StatusRow(
         icon: Icons.error_outline,
-        color: AppColors.error,
+        color: AnchorTheme.statusRed,
         label: 'Bridge unavailable',
         trailing: TextButton(
           onPressed: onConnect,
-          child: Text('Retry',
-              style: GoogleFonts.inter(fontSize: 12, color: AppColors.primary)),
+          child: Text('Retry', style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.accent)),
         ),
       ),
     );
@@ -366,31 +321,23 @@ class _StatusRow extends StatelessWidget {
   final Color color;
   final String label;
   final Widget? trailing;
-  const _StatusRow(
-      {required this.icon,
-      required this.color,
-      required this.label,
-      this.trailing});
+  const _StatusRow({required this.icon, required this.color, required this.label, this.trailing});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color.withOpacity(0.25)),
       ),
       child: Row(
         children: [
           Icon(icon, size: 15, color: color),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(label,
-                style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: color)),
+            child: Text(label, style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: color)),
           ),
           if (trailing != null) trailing!,
         ],
@@ -409,23 +356,18 @@ class _QrCodeDialog extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.primary.withValues(alpha: 0.05),
+        color: AnchorTheme.accent.withOpacity(0.05),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+        border: Border.all(color: AnchorTheme.accent.withOpacity(0.25)),
       ),
       child: Column(
         children: [
           Row(
             children: [
-              const Icon(Icons.qr_code_scanner,
-                  size: 16, color: AppColors.primary),
+              const Icon(Icons.qr_code_scanner, size: 16, color: AnchorTheme.accent),
               const SizedBox(width: 8),
               Expanded(
-                child: Text('Scan with WhatsApp to connect',
-                    style: GoogleFonts.inter(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary)),
+                child: Text('Scan with WhatsApp to connect', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AnchorTheme.accent)),
               ),
             ],
           ),
@@ -441,28 +383,12 @@ class _QrCodeDialog extends ConsumerWidget {
                       fit: BoxFit.contain,
                     ),
                   )
-                : const SizedBox(
-                    width: 200,
-                    height: 200,
-                    child: Center(
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: AppColors.primary)),
-                  ),
-            loading: () => const SizedBox(
-                width: 200,
-                height: 200,
-                child: Center(
-                    child: CircularProgressIndicator(
-                        strokeWidth: 2, color: AppColors.primary))),
-            error: (_, _s) => const Text('Error loading QR code'),
+                : const SizedBox(width: 200, height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent))),
+            loading: () => const SizedBox(width: 200, height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent))),
+            error: (_, __) => const Text('Error loading QR code'),
           ),
           const SizedBox(height: 8),
-          Text(
-            'WhatsApp → Linked Devices → Link a Device',
-            style: GoogleFonts.inter(
-                fontSize: 11, color: AppColors.textMuted),
-            textAlign: TextAlign.center,
-          ),
+          Text('WhatsApp → Linked Devices → Link a Device', style: GoogleFonts.inter(fontSize: 11, color: AnchorTheme.textMuted), textAlign: TextAlign.center),
         ],
       ),
     );
@@ -481,24 +407,21 @@ class _TodayTab extends ConsumerWidget {
 
     return digestsAsync.when(
       data: (digests) => digests.isEmpty
-          ? _EmptyState(
+          ? const _EmptyState(
               icon: Icons.chat_bubble_outline,
               title: 'No digests today',
               subtitle: 'Connect WhatsApp, select groups, and tap Generate',
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20).copyWith(bottom: 100),
               itemCount: digests.length,
               itemBuilder: (context, i) => _DigestCard(
                 digest: digests[i],
                 onAddToTasks: onAddToTasks,
-              ),
+              ).animate(delay: (i * 100).ms).fade().slideX(begin: 0.1),
             ),
-      loading: () => const Center(
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: AppColors.primary)),
-      error: (_, _s) =>
-          const Center(child: Text('Error loading digests')),
+      loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent)),
+      error: (_, __) => const Center(child: Text('Error loading digests')),
     );
   }
 }
@@ -514,24 +437,21 @@ class _HistoryTab extends ConsumerWidget {
 
     return digestsAsync.when(
       data: (digests) => digests.isEmpty
-          ? _EmptyState(
+          ? const _EmptyState(
               icon: Icons.history,
               title: 'No history yet',
               subtitle: 'Past digests will appear here',
             )
           : ListView.builder(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(20).copyWith(bottom: 100),
               itemCount: digests.length,
               itemBuilder: (context, i) => _DigestCard(
                 digest: digests[i],
                 onAddToTasks: (_) {},
-              ),
+              ).animate(delay: (i * 100).ms).fade().slideX(begin: 0.1),
             ),
-      loading: () => const Center(
-          child: CircularProgressIndicator(
-              strokeWidth: 2, color: AppColors.primary)),
-      error: (_, _s) =>
-          const Center(child: Text('Error loading history')),
+      loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent)),
+      error: (_, __) => const Center(child: Text('Error loading history')),
     );
   }
 }
@@ -548,14 +468,13 @@ class _GroupsTab extends ConsumerWidget {
     final localGroups = ref.watch(allLocalGroupsProvider).valueOrNull ?? [];
 
     if (waStatus != WAStatus.connected) {
-      return _EmptyState(
+      return const _EmptyState(
         icon: Icons.groups_outlined,
         title: 'Connect WhatsApp first',
         subtitle: 'Once connected, your groups will appear here',
       );
     }
 
-    // Sync remote groups to local DB
     if (waGroups.isNotEmpty) {
       final dao = ref.read(whatsappDaoProvider);
       for (final g in waGroups) {
@@ -567,13 +486,10 @@ class _GroupsTab extends ConsumerWidget {
       }
     }
 
-    final trackedJids = {
-      for (final g in localGroups)
-        if (g.isTracked) g.jid
-    };
+    final trackedJids = {for (final g in localGroups) if (g.isTracked) g.jid};
 
     return ListView.builder(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(20).copyWith(bottom: 100),
       itemCount: waGroups.isEmpty ? localGroups.length : waGroups.length,
       itemBuilder: (context, i) {
         final String jid;
@@ -596,12 +512,10 @@ class _GroupsTab extends ConsumerWidget {
           margin: const EdgeInsets.only(bottom: 10),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.card,
+            color: AnchorTheme.cardBg,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isTracked
-                  ? AppColors.primary.withValues(alpha: 0.4)
-                  : AppColors.border,
+              color: isTracked ? AnchorTheme.accent.withOpacity(0.4) : AnchorTheme.cardBorder,
             ),
           ),
           child: Row(
@@ -610,43 +524,35 @@ class _GroupsTab extends ConsumerWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.1),
+                  color: const Color(0xFF25D366).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.groups, size: 18,
-                    color: Color(0xFF25D366)),
+                child: const Icon(Icons.groups, size: 18, color: Color(0xFF25D366)),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(name,
-                        style: GoogleFonts.inter(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.textPrimary)),
-                    Text('$participants members',
-                        style: GoogleFonts.inter(
-                            fontSize: 11,
-                            color: AppColors.textMuted)),
+                    Text(name, style: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600, color: AnchorTheme.textPrimary)),
+                    Text('$participants members', style: GoogleFonts.inter(fontSize: 11, color: AnchorTheme.textMuted)),
                   ],
                 ),
               ),
               Switch(
                 value: isTracked,
                 onChanged: (val) {
-                  ref
-                      .read(whatsappDaoProvider)
-                      .setGroupTracked(jid, tracked: val);
+                  ref.read(whatsappDaoProvider).setGroupTracked(jid, tracked: val);
                   ref.invalidate(allLocalGroupsProvider);
                 },
-                activeThumbColor: AppColors.primary,
-                activeTrackColor: AppColors.primary.withValues(alpha: 0.4),
+                activeColor: AnchorTheme.accent,
+                activeTrackColor: AnchorTheme.accent.withOpacity(0.3),
+                inactiveTrackColor: AnchorTheme.cardInset,
+                inactiveThumbColor: AnchorTheme.textMuted,
               ),
             ],
           ),
-        );
+        ).animate(delay: (i * 50).ms).fade().slideX(begin: -0.1);
       },
     );
   }
@@ -662,147 +568,103 @@ class _DigestCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final lines = digest.summary
-        .split('\n')
-        .where((l) => l.trim().isNotEmpty)
-        .toList();
+    final lines = digest.summary.split('\n').where((l) => l.trim().isNotEmpty).toList();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.border),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowLight,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF25D366).withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(10),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: CleanCard(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF25D366).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(Icons.message, size: 18, color: Color(0xFF25D366)),
                 ),
-                child: const Icon(Icons.message, size: 18,
-                    color: Color(0xFF25D366)),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(digest.groupName, style: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w700, color: AnchorTheme.textPrimary)),
+                      Text(_formatDate(digest.digestDate), style: GoogleFonts.inter(fontSize: 11, color: AnchorTheme.textMuted)),
+                    ],
+                  ),
+                ),
+                if (digest.todoistTaskId != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AnchorTheme.statusBlue.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: AnchorTheme.statusBlue.withOpacity(0.3)),
+                    ),
+                    child: Text('Synced', style: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w600, color: AnchorTheme.statusBlue)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            ...lines.map((line) {
+              final isAction = line.toUpperCase().contains('ACTION');
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(digest.groupName,
-                        style: GoogleFonts.inter(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textPrimary)),
-                    Text(
-                      _formatDate(digest.digestDate),
-                      style: GoogleFonts.inter(
-                          fontSize: 11, color: AppColors.textMuted),
+                    Container(
+                      width: 6,
+                      height: 6,
+                      margin: const EdgeInsets.only(top: 6),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: isAction ? AnchorTheme.statusRed : AnchorTheme.textMuted,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            line.replaceFirst(RegExp(r'^[-•]\s*'), ''),
+                            style: GoogleFonts.inter(
+                              fontSize: 13,
+                              height: 1.5,
+                              color: AnchorTheme.textPrimary,
+                              fontWeight: isAction ? FontWeight.w600 : FontWeight.w400,
+                            ),
+                          ),
+                          if (isAction) ...[
+                            const SizedBox(height: 6),
+                            GestureDetector(
+                              onTap: () => onAddToTasks(line.replaceFirst(RegExp(r'^[-••]\s*(ACTION REQUIRED:\s*)?', caseSensitive: false), '')),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: AnchorTheme.accent.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                  border: Border.all(color: AnchorTheme.accent.withOpacity(0.3)),
+                                ),
+                                child: Text('→ Add to Tasks', style: GoogleFonts.inter(fontSize: 11, fontWeight: FontWeight.w600, color: AnchorTheme.accent)),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-              // Todoist synced badge
-              if (digest.todoistTaskId != null)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.info.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
-                        color: AppColors.info.withValues(alpha: 0.3)),
-                  ),
-                  child: Text('Synced',
-                      style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.info)),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...lines.map((line) {
-            final isAction = line.toUpperCase().contains('ACTION');
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    margin: const EdgeInsets.only(top: 6),
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isAction
-                          ? AppColors.error
-                          : AppColors.textMuted,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          line.replaceFirst(RegExp(r'^[-•]\s*'), ''),
-                          style: GoogleFonts.inter(
-                            fontSize: 13,
-                            height: 1.5,
-                            color: AppColors.textPrimary,
-                            fontWeight: isAction
-                                ? FontWeight.w600
-                                : FontWeight.w400,
-                          ),
-                        ),
-                        if (isAction) ...[
-                          const SizedBox(height: 6),
-                          GestureDetector(
-                            onTap: () => onAddToTasks(
-                                line.replaceFirst(
-                                    RegExp(r'^[-••]\s*(ACTION REQUIRED:\s*)?', caseSensitive: false),
-                                    '')),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 10, vertical: 4),
-                              decoration: BoxDecoration(
-                                color: AppColors.primary
-                                    .withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(6),
-                                border: Border.all(
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.3)),
-                              ),
-                              child: Text('→ Add to Tasks',
-                                  style: GoogleFonts.inter(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.primary)),
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-        ],
+              );
+            }),
+          ],
+        ),
       ),
     );
   }
@@ -826,11 +688,7 @@ class _EmptyState extends StatelessWidget {
   final String title;
   final String subtitle;
 
-  const _EmptyState({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
+  const _EmptyState({required this.icon, required this.title, required this.subtitle});
 
   @override
   Widget build(BuildContext context) {
@@ -842,25 +700,18 @@ class _EmptyState extends StatelessWidget {
             width: 64,
             height: 64,
             decoration: BoxDecoration(
-              color: AppColors.surface,
+              color: AnchorTheme.cardBg,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(color: AnchorTheme.cardBorder),
             ),
-            child: Icon(icon, size: 28, color: AppColors.textMuted),
+            child: Icon(icon, size: 28, color: AnchorTheme.textMuted),
           ),
           const SizedBox(height: 16),
-          Text(title,
-              style: GoogleFonts.inter(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary)),
+          Text(title, style: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w600, color: AnchorTheme.textPrimary)),
           const SizedBox(height: 6),
-          Text(subtitle,
-              style: GoogleFonts.inter(
-                  fontSize: 13, color: AppColors.textMuted),
-              textAlign: TextAlign.center),
+          Text(subtitle, style: GoogleFonts.inter(fontSize: 13, color: AnchorTheme.textMuted), textAlign: TextAlign.center),
         ],
       ),
-    );
+    ).animate().fade();
   }
 }

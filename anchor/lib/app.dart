@@ -24,7 +24,7 @@ class AnchorApp extends ConsumerWidget {
     return MaterialApp(
       title: 'Anchor',
       debugShowCheckedModeBanner: false,
-      theme: AppTheme.lightTheme,
+      theme: AppTheme.darkTheme,
       home: permissionsAsync.when(
         data: (granted) {
           if (granted) {
@@ -32,7 +32,7 @@ class AnchorApp extends ConsumerWidget {
               child: MaterialApp.router(
                 title: 'Anchor',
                 debugShowCheckedModeBanner: false,
-                theme: AppTheme.lightTheme,
+                theme: AppTheme.darkTheme,
                 routerConfig: appRouter,
               ),
             );
@@ -123,14 +123,13 @@ class _ApiInitializerState extends ConsumerState<_ApiInitializer> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Clean white loading screen shown while permissions are being checked.
 class _LoadingScreen extends StatelessWidget {
   const _LoadingScreen();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AppColors.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -144,7 +143,7 @@ class _LoadingScreen extends StatelessWidget {
               ),
               child: const Icon(
                 Icons.anchor,
-                color: Colors.white,
+                color: AppColors.background,
                 size: 28,
               ),
             ),
@@ -152,7 +151,7 @@ class _LoadingScreen extends StatelessWidget {
             const Text(
               'ANCHOR',
               style: TextStyle(
-                fontFamily: 'Inter',
+                fontFamily: 'Plus Jakarta Sans',
                 fontSize: 18,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 4,

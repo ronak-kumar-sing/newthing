@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/app_colors.dart';
+import '../design/anchor_theme.dart';
 
-/// ANCHOR Theme — Clean Professional Light Theme.
-/// White backgrounds, solid colors, no gradients, no glassmorphism.
+/// ANCHOR Theme
 class AppTheme {
   AppTheme._();
 
   static TextTheme get _textTheme {
     return TextTheme(
-      displayLarge: GoogleFonts.inter(
+      displayLarge: GoogleFonts.plusJakartaSans(
         fontSize: 36,
         fontWeight: FontWeight.w800,
         letterSpacing: -1,
         color: AppColors.textPrimary,
         height: 1.1,
       ),
-      displayMedium: GoogleFonts.inter(
+      displayMedium: GoogleFonts.plusJakartaSans(
         fontSize: 28,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
         color: AppColors.textPrimary,
         height: 1.2,
       ),
-      displaySmall: GoogleFonts.inter(
+      displaySmall: GoogleFonts.plusJakartaSans(
         fontSize: 24,
         fontWeight: FontWeight.w700,
         color: AppColors.textPrimary,
@@ -95,48 +95,48 @@ class AppTheme {
     );
   }
 
-  static ThemeData get lightTheme {
+  static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
-      brightness: Brightness.light,
-      scaffoldBackgroundColor: AppColors.bg,
+      brightness: Brightness.dark,
+      scaffoldBackgroundColor: AnchorTheme.background,
       fontFamily: 'Inter',
       textTheme: _textTheme,
-      colorScheme: const ColorScheme.light(
-        primary: AppColors.primary,
-        onPrimary: AppColors.textOnPrimary,
-        secondary: AppColors.primaryLight,
-        onSecondary: AppColors.textOnPrimary,
-        surface: AppColors.surface,
-        onSurface: AppColors.textPrimary,
-        surfaceContainerHighest: AppColors.surfaceRaised,
-        onSurfaceVariant: AppColors.textSecondary,
-        outline: AppColors.border,
-        error: AppColors.error,
-        onError: AppColors.textOnPrimary,
-        shadow: AppColors.shadow,
+      colorScheme: const ColorScheme.dark(
+        primary: AnchorTheme.accent,
+        onPrimary: AnchorTheme.background,
+        secondary: AnchorTheme.accent,
+        onSecondary: AnchorTheme.background,
+        surface: AnchorTheme.background,
+        onSurface: AnchorTheme.textPrimary,
+        surfaceContainerHighest: AnchorTheme.cardSurface,
+        onSurfaceVariant: AnchorTheme.textSecondary,
+        outline: AnchorTheme.rimTop,
+        error: AnchorTheme.statusRed,
+        onError: AnchorTheme.textPrimary,
+        shadow: Colors.black,
       ),
       cardTheme: CardThemeData(
-        color: AppColors.card,
+        color: AnchorTheme.cardSurface,
         elevation: 0,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: const BorderSide(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: AnchorTheme.rimTop, width: 1),
         ),
         margin: EdgeInsets.zero,
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: AppColors.bg,
+        backgroundColor: Colors.transparent,
         elevation: 0,
         centerTitle: false,
         titleTextStyle: _textTheme.headlineLarge,
         toolbarHeight: 64,
-        iconTheme: const IconThemeData(color: AppColors.textPrimary),
+        iconTheme: const IconThemeData(color: AnchorTheme.textPrimary),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
+          backgroundColor: AnchorTheme.accent,
+          foregroundColor: AnchorTheme.background,
           elevation: 0,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -148,8 +148,8 @@ class AppTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 1),
+          foregroundColor: AnchorTheme.accent,
+          side: const BorderSide(color: AnchorTheme.accent, width: 1),
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           textStyle: GoogleFonts.inter(
@@ -160,7 +160,7 @@ class AppTheme {
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
-          foregroundColor: AppColors.primary,
+          foregroundColor: AnchorTheme.accent,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           textStyle: GoogleFonts.inter(
             fontSize: 14,
@@ -170,38 +170,38 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: AppColors.bg,
+        fillColor: AnchorTheme.cardInset,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AnchorTheme.rimTop, width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.border, width: 1),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AnchorTheme.rimTop, width: 1),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: AnchorTheme.accent, width: 1.5),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         hintStyle: GoogleFonts.inter(
           fontSize: 14,
-          color: AppColors.textDisabled,
+          color: AnchorTheme.textMuted,
         ),
         labelStyle: GoogleFonts.inter(
           fontSize: 12,
           fontWeight: FontWeight.w500,
-          color: AppColors.textMuted,
+          color: AnchorTheme.textMuted,
         ),
       ),
       dividerTheme: const DividerThemeData(
-        color: AppColors.divider,
+        color: AnchorTheme.rimBottom,
         thickness: 1,
         space: 1,
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
-          color: AppColors.textPrimary,
+          color: AnchorTheme.cardFloat,
           borderRadius: BorderRadius.circular(8),
         ),
         textStyle: GoogleFonts.inter(
@@ -210,9 +210,9 @@ class AppTheme {
         ),
       ),
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: AppColors.bg,
-        selectedItemColor: AppColors.primary,
-        unselectedItemColor: AppColors.textMuted,
+        backgroundColor: Colors.transparent,
+        selectedItemColor: AnchorTheme.accent,
+        unselectedItemColor: AnchorTheme.textMuted,
         type: BottomNavigationBarType.fixed,
         showSelectedLabels: true,
         showUnselectedLabels: true,
@@ -226,18 +226,18 @@ class AppTheme {
         ),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: AppColors.textPrimary,
+        backgroundColor: AnchorTheme.cardFloat,
         contentTextStyle: GoogleFonts.inter(
           fontSize: 14,
-          color: Colors.white,
+          color: AnchorTheme.textPrimary,
         ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         behavior: SnackBarBehavior.floating,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: AppColors.bg,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        elevation: 2,
+        backgroundColor: AnchorTheme.cardFloat,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        elevation: 24,
       ),
     );
   }

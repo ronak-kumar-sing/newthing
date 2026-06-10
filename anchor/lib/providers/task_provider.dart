@@ -9,6 +9,12 @@ final activeTasksProvider = StreamProvider<List<Task>>((ref) {
   return dao.watchActiveTasks();
 });
 
+/// All completed tasks (reactive stream).
+final completedTasksProvider = StreamProvider<List<Task>>((ref) {
+  final dao = ref.watch(taskDaoProvider);
+  return dao.watchCompletedTasks();
+});
+
 /// Tasks due today.
 final tasksDueTodayProvider = FutureProvider<List<Task>>((ref) async {
   final dao = ref.watch(taskDaoProvider);

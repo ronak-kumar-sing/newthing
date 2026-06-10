@@ -1,169 +1,178 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../constants/app_colors.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../design/anchor_theme.dart';
 
-// ─────────────────────────────────────────────
-// Clean Professional Shared Widgets
-// White backgrounds, solid colors, no glassmorphism
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────
+// Anchor Shared Widgets — matches Stitch "Anchor High-Performance"
+// Pure tonal dark, #161616 cards, 1px #252525 border, 20px radius
+// NO glassmorphism / backdrop blur
+// ─────────────────────────────────────────────────────────────────
 
-/// Clean white card with subtle gray border and light shadow.
+/// Standard dark card — #161616 bg, 1px #252525 border, 20px radius.
 class CleanCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
   final double borderRadius;
+  final Color? color;
   final Color? borderColor;
-  final List<BoxShadow>? shadows;
+  final VoidCallback? onTap;
 
   const CleanCard({
     super.key,
     required this.child,
     this.padding,
-    this.borderRadius = 12,
+    this.borderRadius = AnchorTheme.radiusCard,
+    this.color,
     this.borderColor,
-    this.shadows,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final container = Container(
       width: double.infinity,
-      padding: padding ?? const EdgeInsets.all(20),
+      padding: padding ?? const EdgeInsets.all(AnchorTheme.cardPadding),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: color ?? AnchorTheme.cardBg,
         borderRadius: BorderRadius.circular(borderRadius),
         border: Border.all(
-          color: borderColor ?? AppColors.border,
+          color: borderColor ?? AnchorTheme.cardBorder,
           width: 1,
         ),
-        boxShadow: shadows ?? [
-          BoxShadow(
-            color: AppColors.shadowLight,
-            blurRadius: 4,
-            spreadRadius: 0,
-            offset: const Offset(0, 1),
-          ),
-        ],
       ),
       child: child,
     );
+
+    if (onTap != null) {
+      return GestureDetector(
+        onTap: onTap,
+        child: container,
+      );
+    }
+    return container;
   }
 }
 
-/// Clean white card with a left purple accent border.
+/// Card with a colored left accent strip (3px wide).
 class AccentCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
   final double borderRadius;
-  final double accentWidth;
   final Color accentColor;
 
   const AccentCard({
     super.key,
     required this.child,
     this.padding,
-    this.borderRadius = 12,
-    this.accentWidth = 3,
-    this.accentColor = AppColors.primary,
+    this.borderRadius = AnchorTheme.radiusCard,
+    this.accentColor = AnchorTheme.accent,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      padding: padding ?? const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.card,
+        color: AnchorTheme.cardBg,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border.all(
-          color: AppColors.border,
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.shadowLight,
-            blurRadius: 4,
-            spreadRadius: 0,
-            offset: const Offset(0, 1),
-          ),
-        ],
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: accentWidth,
-            height: 40,
-            decoration: BoxDecoration(
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 3,
               color: accentColor,
-              borderRadius: BorderRadius.circular(2),
             ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(child: child),
-        ],
+            Expanded(
+              child: Padding(
+                padding: padding ?? const EdgeInsets.all(AnchorTheme.cardPadding),
+                child: child,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-/// Solid purple primary button with white text.
+/// Lime pill button (primary CTA).
 class PrimaryButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;
-  final double height;
   final IconData? icon;
   final bool isOutlined;
+  final double? height;
 
   const PrimaryButton(
     this.text,
     this.onPressed, {
     super.key,
-    this.height = 44,
     this.icon,
     this.isOutlined = false,
+    this.height,
   });
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(AnchorTheme.radiusBtn);
     if (isOutlined) {
-      return OutlinedButton.icon(
-        onPressed: onPressed,
-        icon: icon != null ? Icon(icon, size: 16) : const SizedBox.shrink(),
-        label: Text(text),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: AppColors.primary,
-          side: const BorderSide(color: AppColors.primary, width: 1),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          textStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+      return SizedBox(
+        height: height,
+        child: OutlinedButton(
+          onPressed: onPressed,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: AnchorTheme.accent,
+            side: const BorderSide(color: AnchorTheme.accent, width: 1),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: radius),
+            textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w600),
           ),
+          child: icon != null
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icon, size: 16),
+                    const SizedBox(width: 6),
+                    Text(text),
+                  ],
+                )
+              : Text(text),
         ),
       );
     }
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: icon != null ? Icon(icon, size: 16, color: Colors.white) : const SizedBox.shrink(),
-      label: Text(text),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: AppColors.primary,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        textStyle: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
+    return SizedBox(
+      height: height,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: AnchorTheme.accent,
+          foregroundColor: AnchorTheme.onAccent,
+          elevation: 0,
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          shape: RoundedRectangleBorder(borderRadius: radius),
+          textStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w700),
         ),
+        child: icon != null
+            ? Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: AnchorTheme.onAccent),
+                  const SizedBox(width: 6),
+                  Text(text),
+                ],
+              )
+            : Text(text),
       ),
     );
   }
 }
 
-/// Section header with label text.
+/// Section header — UPPERCASE 12px/700, 0.05em tracking, muted color + dot.
 class SectionHeader extends StatelessWidget {
   final String label;
   final Color? color;
@@ -178,34 +187,95 @@ class SectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 4,
-          height: isMobile ? 14 : 18,
-          decoration: BoxDecoration(
-            color: color ?? AppColors.primary,
-            borderRadius: BorderRadius.circular(2),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            label,
-            style: GoogleFonts.inter(
-              fontSize: isMobile ? 12 : 13,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.5,
-              color: AppColors.textPrimary,
-            ),
-          ),
-        ),
-      ],
+    return Text(
+      label.toUpperCase(),
+      style: GoogleFonts.inter(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        letterSpacing: 1.5,
+        color: color ?? AnchorTheme.textMuted,
+      ),
     );
   }
 }
 
-/// Animated counter for statistics.
+/// Status pill/badge — 6px radius, colored bg.
+class StatusPill extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const StatusPill({super.key, required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.15),
+        borderRadius: BorderRadius.circular(AnchorTheme.radiusTag),
+        border: Border.all(color: color.withOpacity(0.4), width: 1),
+      ),
+      child: Text(
+        label,
+        style: GoogleFonts.inter(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: color,
+          letterSpacing: 0.5,
+        ),
+      ),
+    );
+  }
+}
+
+/// Pill progress bar — lime fill on dark track.
+class AnchorProgressBar extends StatelessWidget {
+  final double progress; // 0.0 – 1.0
+  final double height;
+  final Color? trackColor;
+  final Color? fillColor;
+
+  const AnchorProgressBar({
+    super.key,
+    required this.progress,
+    this.height = 6,
+    this.trackColor,
+    this.fillColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final w = constraints.maxWidth;
+        return Stack(
+          children: [
+            Container(
+              width: w,
+              height: height,
+              decoration: BoxDecoration(
+                color: trackColor ?? AnchorTheme.trackBg,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeOutCubic,
+              width: (w * progress.clamp(0.0, 1.0)).toDouble(),
+              height: height,
+              decoration: BoxDecoration(
+                color: fillColor ?? AnchorTheme.trackFill,
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Animated counter.
 class AnimatedCounter extends StatelessWidget {
   final int value;
   final String? prefix;
@@ -226,15 +296,15 @@ class AnimatedCounter extends StatelessWidget {
       tween: IntTween(begin: 0, end: value),
       duration: const Duration(milliseconds: 1200),
       curve: Curves.easeOutCubic,
-      builder: (context, val, child) {
+      builder: (context, val, _) {
         return Text(
           '${prefix ?? ''}$val${suffix ?? ''}',
           style: style ??
               GoogleFonts.inter(
-                fontSize: 48,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -1,
-                color: AppColors.textPrimary,
+                fontSize: 72,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -2,
+                color: AnchorTheme.accent,
               ),
         );
       },
@@ -242,76 +312,23 @@ class AnimatedCounter extends StatelessWidget {
   }
 }
 
-/// Fade + slide entrance animation wrapper.
-class FadeSlideIn extends StatefulWidget {
+/// Fade + slide entrance using flutter_animate
+class FadeSlideIn extends StatelessWidget {
   final Widget child;
   final double delaySeconds;
 
-  const FadeSlideIn({
-    super.key,
-    required this.child,
-    this.delaySeconds = 0,
-  });
-
-  @override
-  State<FadeSlideIn> createState() => _FadeSlideInState();
-}
-
-class _FadeSlideInState extends State<FadeSlideIn>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _fade;
-  late Animation<Offset> _slide;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 600),
-      vsync: this,
-    );
-    _fade = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
-    _slide = Tween<Offset>(
-      begin: const Offset(0, 16),
-      end: Offset.zero,
-    ).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic),
-    );
-
-    Future.delayed(
-      Duration(milliseconds: (widget.delaySeconds * 1000).toInt()),
-      () {
-        if (mounted) _controller.forward();
-      },
-    );
-  }
+  const FadeSlideIn({super.key, required this.child, this.delaySeconds = 0});
 
   @override
   Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fade,
-      child: AnimatedBuilder(
-        animation: _slide,
-        builder: (context, child) => Transform.translate(
-          offset: _slide.value,
-          child: child,
-        ),
-        child: widget.child,
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
+    return child.animate(delay: (delaySeconds * 1000).ms)
+        .fade(duration: 500.ms, curve: Curves.easeOut)
+        .slideY(begin: 0.1, duration: 500.ms, curve: Curves.easeOutCubic);
   }
 }
 
-/// Standard rating row with tappable dots.
-class RatingRow extends StatefulWidget {
+/// 1-5 rating row with tappable pill buttons.
+class RatingRow extends StatelessWidget {
   final String label;
   final int max;
   final int? selectedValue;
@@ -328,65 +345,64 @@ class RatingRow extends StatefulWidget {
   });
 
   @override
-  State<RatingRow> createState() => _RatingRowState();
-}
-
-class _RatingRowState extends State<RatingRow> {
-  @override
   Widget build(BuildContext context) {
     return Row(
       children: [
         SizedBox(
           width: 60,
           child: Text(
-            widget.label,
+            label,
             style: GoogleFonts.inter(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: AppColors.textSecondary,
+              fontSize: 13,
+              fontWeight: FontWeight.w500,
+              color: AnchorTheme.textSecondary,
             ),
           ),
         ),
-        Row(
-          children: List.generate(widget.max, (i) {
-            final value = i + 1;
-            final isSelected = widget.selectedValue == value;
-            return GestureDetector(
-              onTap: widget.onSelected != null
-                  ? () => widget.onSelected!(value)
-                  : null,
-              child: Container(
-                width: widget.isMobile ? 32 : 36,
-                height: widget.isMobile ? 32 : 36,
-                margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : AppColors.surface,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: isSelected ? AppColors.primary : AppColors.border,
-                    width: isSelected ? 2 : 1,
-                  ),
-                ),
-                child: Center(
-                  child: Text(
-                    '$value',
-                    style: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                      color: isSelected ? Colors.white : AppColors.textSecondary,
+        Expanded(
+          child: Row(
+            children: List.generate(max, (i) {
+              final v = i + 1;
+              final active = selectedValue == v;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: onSelected != null ? () => onSelected!(v) : null,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 150),
+                    margin: const EdgeInsets.only(right: 6),
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: active
+                          ? AnchorTheme.accent.withOpacity(0.15)
+                          : AnchorTheme.cardInset,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: active ? AnchorTheme.accent : AnchorTheme.cardBorder,
+                        width: active ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$v',
+                        style: GoogleFonts.inter(
+                          fontSize: 13,
+                          fontWeight: active ? FontWeight.w700 : FontWeight.w400,
+                          color: active ? AnchorTheme.accent : AnchorTheme.textMuted,
+                        ),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            );
-          }),
+              );
+            }),
+          ),
         ),
       ],
     );
   }
 }
 
-/// Clean stat pill for dashboard stats.
+/// Stat pill for dashboard overview.
 class StatPill extends StatelessWidget {
   final String label;
   final int count;
@@ -401,28 +417,32 @@ class StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return CleanCard(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      borderRadius: 12,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             '$count',
             style: GoogleFonts.inter(
-              fontSize: 24,
-              fontWeight: FontWeight.w700,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
               color: color,
             ),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 2),
           Text(
             label,
             style: GoogleFonts.inter(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: AnchorTheme.textMuted,
             ),
           ),
         ],

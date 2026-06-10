@@ -2,14 +2,15 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import '../../core/constants/app_colors.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/design/anchor_theme.dart';
 import '../../core/theme/slice_spacing.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../providers/screen_time_provider.dart';
 import '../../providers/settings_provider.dart';
 
-/// Screen Mirror — tracks and displays screen time.
-/// Clean white professional design: AppColors, CleanCard, SectionHeader.
+/// Screen Mirror — matches Stitch design "Screen Mirror"
+/// Tracks and displays screen time using Anchor High-Performance dark tonal design.
 class ScreenMirrorScreen extends ConsumerStatefulWidget {
   const ScreenMirrorScreen({super.key});
 
@@ -58,13 +59,13 @@ class _ScreenMirrorScreenState extends ConsumerState<ScreenMirrorScreen> {
     final health = _calculateHealth(productiveMinutes, todayMinutes);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AnchorTheme.background,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(
-            horizontal: SliceSpacing.lg,
-            vertical: SliceSpacing.lg,
-          ),
+            horizontal: 24,
+            vertical: 24,
+          ).copyWith(bottom: 100),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -73,39 +74,39 @@ class _ScreenMirrorScreenState extends ConsumerState<ScreenMirrorScreen> {
                 'Screen Mirror',
                 style: GoogleFonts.inter(
                   fontSize: 24,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w800,
                   letterSpacing: -0.5,
-                  color: AppColors.textPrimary,
+                  color: AnchorTheme.textPrimary,
                 ),
-              ),
-              const SizedBox(height: 4),
+              ).animate().fade().slideY(begin: -0.2),
+              const SizedBox(height: 6),
               Text(
                 'Real-time awareness of where your time goes.',
                 style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AppColors.textSecondary,
+                  fontSize: 14,
+                  color: AnchorTheme.textSecondary,
                 ),
-              ),
-              const SizedBox(height: SliceSpacing.lg),
+              ).animate(delay: 100.ms).fade(),
+              const SizedBox(height: 24),
 
               // ── Total time card ──
               _TotalTimeCard(
                 hours: totalHours,
                 minutes: totalMins,
                 health: health,
-              ),
-              const SizedBox(height: SliceSpacing.md),
+              ).animate(delay: 200.ms).fade().slideY(begin: 0.1),
+              const SizedBox(height: 16),
 
               // ── Health indicator ──
-              _HealthIndicator(health: health),
-              const SizedBox(height: SliceSpacing.md),
+              _HealthIndicator(health: health).animate(delay: 300.ms).fade().slideY(begin: 0.1),
+              const SizedBox(height: 16),
 
               // ── Limit card ──
               _LimitCard(
                 distractedMinutes: distractedMinutes,
                 limitMinutes: limitMinutes,
-              ),
-              const SizedBox(height: SliceSpacing.md),
+              ).animate(delay: 400.ms).fade().slideY(begin: 0.1),
+              const SizedBox(height: 16),
 
               // ── Category breakdown ──
               _CategoryBreakdown(
@@ -113,12 +114,11 @@ class _ScreenMirrorScreenState extends ConsumerState<ScreenMirrorScreen> {
                 neutral: neutralMinutes,
                 distracted: distractedMinutes,
                 limit: limitMinutes,
-              ),
-              const SizedBox(height: SliceSpacing.md),
+              ).animate(delay: 500.ms).fade().slideY(begin: 0.1),
+              const SizedBox(height: 16),
 
               // ── Weekly trend ──
-              _WeeklyTrendCard(weeklyData: weeklyMinutes),
-              const SizedBox(height: SliceSpacing.lg),
+              _WeeklyTrendCard(weeklyData: weeklyMinutes).animate(delay: 600.ms).fade().slideY(begin: 0.1),
             ],
           ),
         ),
@@ -161,28 +161,28 @@ class _TotalTimeCard extends StatelessWidget {
     final Color healthColor = _healthColor(health);
 
     return CleanCard(
-      padding: const EdgeInsets.all(SliceSpacing.lg),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              SectionHeader(label: "TODAY'S TOTAL"),
+              const SectionHeader(label: "Today's Total"),
               _HealthDot(color: healthColor),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 24),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Text(
                 '$hours',
                 style: GoogleFonts.inter(
-                  fontSize: 56,
+                  fontSize: 64,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -2,
-                  color: AppColors.textPrimary,
+                  color: AnchorTheme.textPrimary,
                   height: 1,
                 ),
               ),
@@ -192,20 +192,20 @@ class _TotalTimeCard extends StatelessWidget {
                 child: Text(
                   'h',
                   style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AnchorTheme.textSecondary,
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 12),
               Text(
                 '$minutes',
                 style: GoogleFonts.inter(
-                  fontSize: 56,
+                  fontSize: 64,
                   fontWeight: FontWeight.w800,
                   letterSpacing: -2,
-                  color: AppColors.textPrimary,
+                  color: AnchorTheme.textPrimary,
                   height: 1,
                 ),
               ),
@@ -215,30 +215,30 @@ class _TotalTimeCard extends StatelessWidget {
                 child: Text(
                   'm',
                   style: GoogleFonts.inter(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textSecondary,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                    color: AnchorTheme.textSecondary,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
-              color: healthColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(6),
+              color: healthColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: healthColor.withValues(alpha: 0.2),
+                color: healthColor.withOpacity(0.2),
                 width: 1,
               ),
             ),
             child: Text(
               _healthMessage(health),
               style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
                 color: healthColor,
               ),
             ),
@@ -251,13 +251,13 @@ class _TotalTimeCard extends StatelessWidget {
   Color _healthColor(_HealthStatus health) {
     switch (health) {
       case _HealthStatus.good:
-        return AppColors.success;
+        return AnchorTheme.statusGreen;
       case _HealthStatus.fair:
-        return AppColors.warning;
+        return AnchorTheme.statusOrange;
       case _HealthStatus.poor:
-        return AppColors.error;
+        return AnchorTheme.statusRed;
       case _HealthStatus.noData:
-        return AppColors.textMuted;
+        return AnchorTheme.textMuted;
     }
   }
 
@@ -321,22 +321,22 @@ class _CategoryBreakdown extends StatelessWidget {
       return CleanCard(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: SliceSpacing.xl),
+            padding: const EdgeInsets.symmetric(vertical: 40),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.monitor_outlined,
                   size: 40,
-                  color: AppColors.textMuted,
+                  color: AnchorTheme.textMuted,
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
                 Text(
                   'No activity tracked yet today.\nApp categorization will appear here.',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.inter(
-                    fontSize: 13,
-                    color: AppColors.textMuted,
+                    fontSize: 14,
+                    color: AnchorTheme.textMuted,
                     height: 1.5,
                   ),
                 ),
@@ -348,32 +348,33 @@ class _CategoryBreakdown extends StatelessWidget {
     }
 
     return CleanCard(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(label: 'CATEGORY BREAKDOWN'),
-          const SizedBox(height: 20),
+          const SectionHeader(label: 'Category Breakdown'),
+          const SizedBox(height: 24),
           _CategoryBar(
             label: 'Productive',
             minutes: productive,
             total: total,
-            barColor: AppColors.success,
+            barColor: AnchorTheme.statusGreen,
             icon: Icons.trending_up_rounded,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           _CategoryBar(
             label: 'Neutral',
             minutes: neutral,
             total: total,
-            barColor: AppColors.warning,
+            barColor: AnchorTheme.statusOrange,
             icon: Icons.remove_rounded,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           _CategoryBar(
             label: 'Distracted',
             minutes: distracted,
             total: total,
-            barColor: AppColors.error,
+            barColor: AnchorTheme.statusRed,
             icon: Icons.warning_amber_rounded,
             limit: limit,
           ),
@@ -418,40 +419,40 @@ class _CategoryBar extends StatelessWidget {
         Row(
           children: [
             Container(
-              width: 28,
-              height: 28,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
-                color: barColor.withValues(alpha: 0.1),
+                color: barColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Icon(icon, size: 14, color: barColor),
+              child: Icon(icon, size: 16, color: barColor),
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 12),
             Text(
               label,
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: AppColors.textPrimary,
+                color: AnchorTheme.textPrimary,
               ),
             ),
             const Spacer(),
             Text(
               timeStr,
               style: GoogleFonts.inter(
-                fontSize: 13,
+                fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: overLimit ? AppColors.error : AppColors.textSecondary,
+                color: overLimit ? AnchorTheme.statusRed : AnchorTheme.textSecondary,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         ClipRRect(
           borderRadius: BorderRadius.circular(4),
           child: Container(
             height: 8,
-            color: AppColors.trackBg,
+            color: AnchorTheme.cardInset,
             child: Row(
               children: [
                 Expanded(
@@ -468,13 +469,13 @@ class _CategoryBar extends StatelessWidget {
         ),
         if (limit != null)
           Padding(
-            padding: const EdgeInsets.only(top: 5),
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Limit: ${limit! ~/ 60}h ${limit! % 60}m',
               style: GoogleFonts.inter(
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: AppColors.textMuted,
+                color: AnchorTheme.textMuted,
               ),
             ),
           ),
@@ -501,54 +502,54 @@ class _HealthIndicator extends StatelessWidget {
     switch (health) {
       case _HealthStatus.good:
         label = 'On Track';
-        color = AppColors.success;
+        color = AnchorTheme.statusGreen;
         icon = Icons.check_circle_rounded;
       case _HealthStatus.fair:
         label = 'Borderline';
-        color = AppColors.warning;
+        color = AnchorTheme.statusOrange;
         icon = Icons.warning_rounded;
       case _HealthStatus.poor:
         label = 'Needs Attention';
-        color = AppColors.error;
+        color = AnchorTheme.statusRed;
         icon = Icons.error_rounded;
       case _HealthStatus.noData:
         label = 'No Data';
-        color = AppColors.textMuted;
+        color = AnchorTheme.textMuted;
         icon = Icons.help_outline_rounded;
     }
 
     return CleanCard(
-      padding: const EdgeInsets.all(SliceSpacing.lg),
+      padding: const EdgeInsets.all(24),
       child: Row(
         children: [
           Container(
-            width: 52,
-            height: 52,
+            width: 56,
+            height: 56,
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.1),
+              color: color.withOpacity(0.1),
               shape: BoxShape.circle,
-              border: Border.all(color: color.withValues(alpha: 0.3), width: 1.5),
+              border: Border.all(color: color.withOpacity(0.3), width: 1.5),
             ),
-            child: Icon(icon, size: 26, color: color),
+            child: Icon(icon, size: 28, color: color),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 20),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Health Status',
                 style: GoogleFonts.inter(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
-                  color: AppColors.textMuted,
+                  color: AnchorTheme.textMuted,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 label,
                 style: GoogleFonts.inter(
-                  fontSize: 16,
+                  fontSize: 18,
                   fontWeight: FontWeight.w700,
                   color: color,
                 ),
@@ -579,35 +580,35 @@ class _LimitCard extends StatelessWidget {
     final remaining = limitMinutes - distractedMinutes;
     final overLimit = remaining < 0;
     final progress = (distractedMinutes / limitMinutes).clamp(0.0, 1.0);
-    final barColor = overLimit ? AppColors.error : AppColors.primary;
+    final barColor = overLimit ? AnchorTheme.statusRed : AnchorTheme.accent;
 
     return CleanCard(
-      padding: const EdgeInsets.all(SliceSpacing.lg),
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SectionHeader(
-            label: 'DISTRACTION LIMIT',
-            color: overLimit ? AppColors.error : AppColors.primary,
+            label: 'Distraction Limit',
+            color: overLimit ? AnchorTheme.statusRed : AnchorTheme.accent,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 20),
           Text(
             overLimit
                 ? 'Over limit'
                 : '${remaining ~/ 60}h ${remaining % 60}m remaining',
             style: GoogleFonts.inter(
-              fontSize: 20,
+              fontSize: 24,
               fontWeight: FontWeight.w700,
               letterSpacing: -0.5,
-              color: overLimit ? AppColors.error : AppColors.textPrimary,
+              color: overLimit ? AnchorTheme.statusRed : AnchorTheme.textPrimary,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: Container(
-              height: 6,
-              color: AppColors.trackBg,
+              height: 8,
+              color: AnchorTheme.cardInset,
               child: Row(
                 children: [
                   Expanded(
@@ -622,13 +623,13 @@ class _LimitCard extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 10),
           Text(
             'Daily limit: ${limitMinutes ~/ 60}h ${limitMinutes % 60}m',
             style: GoogleFonts.inter(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: AnchorTheme.textMuted,
             ),
           ),
         ],
@@ -674,11 +675,12 @@ class _WeeklyTrendCard extends StatelessWidget {
     }
 
     return CleanCard(
+      padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SectionHeader(label: 'WEEKLY TREND'),
-          const SizedBox(height: 20),
+          const SectionHeader(label: 'Weekly Trend'),
+          const SizedBox(height: 24),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.end,
@@ -692,15 +694,15 @@ class _WeeklyTrendCard extends StatelessWidget {
               );
             }).toList(),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Text(
             weeklyData.isEmpty
                 ? 'No weekly data yet. Use the app to track screen time.'
                 : 'Data synced from device usage stats',
             style: GoogleFonts.inter(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: AppColors.textMuted,
+              color: AnchorTheme.textMuted,
             ),
           ),
         ],
@@ -737,20 +739,20 @@ class _DayBar extends StatelessWidget {
       child: Column(
         children: [
           Container(
-            width: 20,
-            height: 60 * height,
+            width: 24,
+            height: 80 * height,
             decoration: BoxDecoration(
-              color: isToday ? AppColors.primary : AppColors.primaryLight,
+              color: isToday ? AnchorTheme.accent : AnchorTheme.cardBorder,
               borderRadius: BorderRadius.circular(4),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 8),
           Text(
             day,
             style: GoogleFonts.inter(
-              fontSize: 10,
+              fontSize: 11,
               fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
-              color: isToday ? AppColors.primary : AppColors.textMuted,
+              color: isToday ? AnchorTheme.accent : AnchorTheme.textMuted,
             ),
           ),
         ],

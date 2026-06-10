@@ -6,7 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../constants/app_colors.dart';
+import '../design/anchor_theme.dart';
 import '../services/usage_stats_service.dart';
 
 /// Permission request screen shown before the app starts.
@@ -243,7 +243,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
     final someDenied = _permissions.any((p) => p.isDenied);
 
     return Scaffold(
-      backgroundColor: AppColors.bg,
+      backgroundColor: AnchorTheme.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -262,16 +262,16 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                         height: 10,
                         decoration: BoxDecoration(
                           color: allGranted
-                              ? AppColors.signal
-                              : AppColors.amber,
+                              ? AnchorTheme.statusGreen
+                              : AnchorTheme.statusOrange,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
                               color: (allGranted
-                                      ? AppColors.signal
-                                      : AppColors.amber)
-                                  .withValues(
-                                      alpha: 0.3 * _pulseController.value),
+                                      ? AnchorTheme.statusGreen
+                                      : AnchorTheme.statusOrange)
+                                  .withOpacity(
+                                      0.3 * _pulseController.value),
                               blurRadius: 12,
                               spreadRadius: 2,
                             ),
@@ -289,7 +289,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                       letterSpacing: 2,
-                      color: allGranted ? AppColors.signal : AppColors.amber,
+                      color: allGranted ? AnchorTheme.statusGreen : AnchorTheme.statusOrange,
                     ),
                   ),
                 ],
@@ -300,7 +300,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                 style: GoogleFonts.bricolageGrotesque(
                   fontSize: 32,
                   fontWeight: FontWeight.w700,
-                  color: AppColors.textPrimary,
+                  color: AnchorTheme.textPrimary,
                 ),
               ),
               const SizedBox(height: 8),
@@ -308,7 +308,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                 'Anchor needs the following permissions to function fully. All data stays on your device.',
                 style: GoogleFonts.outfit(
                   fontSize: 14,
-                  color: AppColors.textSecondary,
+                  color: AnchorTheme.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -338,8 +338,8 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                   width: double.infinity,
                   child: OutlinedButton.icon(
                     onPressed: _openSettings,
-                    icon: const Icon(Icons.settings, size: 16),
-                    label: const Text('OPEN SYSTEM SETTINGS'),
+                    icon: const Icon(Icons.settings, size: 16, color: AnchorTheme.textSecondary),
+                    label: Text('OPEN SYSTEM SETTINGS', style: TextStyle(color: AnchorTheme.textSecondary)),
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -350,7 +350,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                   onPressed: _isLoading ? null : _requestAll,
                   style: ElevatedButton.styleFrom(
                     backgroundColor:
-                        allGranted ? AppColors.signal : AppColors.ice,
+                        allGranted ? AnchorTheme.statusGreen : AnchorTheme.cardFloat,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                   ),
                   child: _isLoading
@@ -360,7 +360,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation(
-                              AppColors.bg,
+                              AnchorTheme.background,
                             ),
                           ),
                         )
@@ -370,6 +370,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                             letterSpacing: 1.5,
+                            color: allGranted ? AnchorTheme.background : AnchorTheme.textPrimary,
                           ),
                         ),
                 ),
@@ -380,7 +381,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                   'Your data never leaves this device',
                   style: GoogleFonts.jetBrainsMono(
                     fontSize: 9,
-                    color: AppColors.textDisabled,
+                    color: AnchorTheme.textMuted,
                     letterSpacing: 0.5,
                   ),
                 ),
@@ -511,23 +512,23 @@ class _PermissionTile extends StatelessWidget {
     IconData statusIcon;
 
     if (item.isGranted) {
-      statusColor = AppColors.signal;
+      statusColor = AnchorTheme.statusGreen;
       statusText = 'GRANTED';
       statusIcon = Icons.check;
     } else if (isWatching) {
-      statusColor = AppColors.amber;
+      statusColor = AnchorTheme.statusOrange;
       statusText = 'WAITING';
       statusIcon = Icons.hourglass_top;
     } else if (item.isDenied && item.isSpecial) {
-      statusColor = AppColors.amber;
+      statusColor = AnchorTheme.statusOrange;
       statusText = 'MANUAL';
       statusIcon = Icons.open_in_new;
     } else if (item.isDenied) {
-      statusColor = AppColors.alert;
+      statusColor = AnchorTheme.statusRed;
       statusText = 'DENIED';
       statusIcon = Icons.close;
     } else {
-      statusColor = AppColors.textMuted;
+      statusColor = AnchorTheme.textMuted;
       statusText = 'PENDING';
       statusIcon = Icons.circle_outlined;
     }
@@ -536,12 +537,12 @@ class _PermissionTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(2),
+        color: AnchorTheme.cardBg,
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: item.isGranted
-              ? AppColors.border
-              : statusColor.withValues(alpha: 0.3),
+              ? AnchorTheme.cardBorder
+              : statusColor.withOpacity(0.3),
           width: 1,
         ),
       ),
@@ -551,8 +552,8 @@ class _PermissionTile extends StatelessWidget {
             width: 36,
             height: 36,
             decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(2),
+              color: statusColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(4),
             ),
             child: Icon(item.icon, size: 18, color: statusColor),
           ),
@@ -568,7 +569,7 @@ class _PermissionTile extends StatelessWidget {
                       style: GoogleFonts.outfit(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary,
+                        color: AnchorTheme.textPrimary,
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -576,8 +577,8 @@ class _PermissionTile extends StatelessWidget {
                       padding:
                           const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: statusColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(2),
+                        color: statusColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -603,7 +604,7 @@ class _PermissionTile extends StatelessWidget {
                   item.description,
                   style: GoogleFonts.outfit(
                     fontSize: 12,
-                    color: AppColors.textMuted,
+                    color: AnchorTheme.textMuted,
                   ),
                 ),
               ],
@@ -614,13 +615,13 @@ class _PermissionTile extends StatelessWidget {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onRequest,
-                borderRadius: BorderRadius.circular(2),
+                borderRadius: BorderRadius.circular(4),
                 child: Container(
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceRaised,
-                    borderRadius: BorderRadius.circular(2),
+                    color: AnchorTheme.cardInset,
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: isWatching
                       ? SizedBox(
@@ -628,7 +629,7 @@ class _PermissionTile extends StatelessWidget {
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation(AppColors.ice),
+                            valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
                           ),
                         )
                       : Text(
@@ -636,7 +637,7 @@ class _PermissionTile extends StatelessWidget {
                           style: GoogleFonts.jetBrainsMono(
                             fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: AppColors.ice,
+                            color: AnchorTheme.accent,
                             letterSpacing: 0.5,
                           ),
                         ),

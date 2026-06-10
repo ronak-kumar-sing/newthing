@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../modules/ai_coach/ai_coach_screen.dart';
 import '../../modules/independence_clock/independence_clock_screen.dart';
 import '../../modules/life_progress/life_progress_screen.dart';
 import '../../modules/morning_brief/morning_brief_screen.dart';
 import '../../modules/screen_mirror/screen_mirror_screen.dart';
 import '../../modules/task_center/task_center_screen.dart';
-import '../../modules/focus_mode/focus_mode_screen.dart';
 import '../../modules/placement_tracker/placement_tracker_screen.dart';
 import '../../modules/settings/settings_screen.dart';
 import '../../modules/whatsapp_digest/whatsapp_digest_screen.dart';
@@ -22,9 +20,7 @@ class Routes {
   static const String screenMirror = '/screen';
   static const String taskCenter = '/tasks';
   static const String lifeProgress = '/progress';
-  static const String aiCoach = '/coach';
   static const String whatsappDigest = '/whatsapp';
-  static const String focusMode = '/focus';
   static const String placementTracker = '/placement';
   static const String settings = '/settings';
 }
@@ -64,19 +60,9 @@ final GoRouter appRouter = GoRouter(
           pageBuilder: (context, state) => _buildPage(state, const LifeProgressScreen()),
         ),
         GoRoute(
-          path: Routes.aiCoach,
-          name: 'aiCoach',
-          pageBuilder: (context, state) => _buildPage(state, const AiCoachScreen()),
-        ),
-        GoRoute(
           path: Routes.whatsappDigest,
           name: 'whatsappDigest',
           pageBuilder: (context, state) => _buildPage(state, const WhatsappDigestScreen()),
-        ),
-        GoRoute(
-          path: Routes.focusMode,
-          name: 'focusMode',
-          pageBuilder: (context, state) => _buildPage(state, const FocusModeScreen()),
         ),
         GoRoute(
           path: Routes.placementTracker,
