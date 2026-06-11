@@ -6023,6 +6023,526 @@ class WhatsappGroupsCompanion extends UpdateCompanion<WhatsappGroup> {
   }
 }
 
+class $PlacementsTable extends Placements
+    with TableInfo<$PlacementsTable, PlacementApplication> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $PlacementsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _companyMeta = const VerificationMeta(
+    'company',
+  );
+  @override
+  late final GeneratedColumn<String> company = GeneratedColumn<String>(
+    'company',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+    'status',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _appliedDateMeta = const VerificationMeta(
+    'appliedDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> appliedDate = GeneratedColumn<DateTime>(
+    'applied_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nextStepMeta = const VerificationMeta(
+    'nextStep',
+  );
+  @override
+  late final GeneratedColumn<String> nextStep = GeneratedColumn<String>(
+    'next_step',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _nextStepDateMeta = const VerificationMeta(
+    'nextStepDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> nextStepDate = GeneratedColumn<DateTime>(
+    'next_step_date',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    company,
+    role,
+    status,
+    appliedDate,
+    nextStep,
+    nextStepDate,
+    notes,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'placements';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<PlacementApplication> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('company')) {
+      context.handle(
+        _companyMeta,
+        company.isAcceptableOrUnknown(data['company']!, _companyMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_companyMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(
+        _roleMeta,
+        role.isAcceptableOrUnknown(data['role']!, _roleMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(
+        _statusMeta,
+        status.isAcceptableOrUnknown(data['status']!, _statusMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('applied_date')) {
+      context.handle(
+        _appliedDateMeta,
+        appliedDate.isAcceptableOrUnknown(
+          data['applied_date']!,
+          _appliedDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_appliedDateMeta);
+    }
+    if (data.containsKey('next_step')) {
+      context.handle(
+        _nextStepMeta,
+        nextStep.isAcceptableOrUnknown(data['next_step']!, _nextStepMeta),
+      );
+    }
+    if (data.containsKey('next_step_date')) {
+      context.handle(
+        _nextStepDateMeta,
+        nextStepDate.isAcceptableOrUnknown(
+          data['next_step_date']!,
+          _nextStepDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  PlacementApplication map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return PlacementApplication(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      company: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}company'],
+      )!,
+      role: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}role'],
+      )!,
+      status: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}status'],
+      )!,
+      appliedDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}applied_date'],
+      )!,
+      nextStep: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}next_step'],
+      ),
+      nextStepDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}next_step_date'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      ),
+    );
+  }
+
+  @override
+  $PlacementsTable createAlias(String alias) {
+    return $PlacementsTable(attachedDatabase, alias);
+  }
+}
+
+class PlacementApplication extends DataClass
+    implements Insertable<PlacementApplication> {
+  final String id;
+  final String company;
+  final String role;
+  final String status;
+  final DateTime appliedDate;
+  final String? nextStep;
+  final DateTime? nextStepDate;
+  final String? notes;
+  const PlacementApplication({
+    required this.id,
+    required this.company,
+    required this.role,
+    required this.status,
+    required this.appliedDate,
+    this.nextStep,
+    this.nextStepDate,
+    this.notes,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['company'] = Variable<String>(company);
+    map['role'] = Variable<String>(role);
+    map['status'] = Variable<String>(status);
+    map['applied_date'] = Variable<DateTime>(appliedDate);
+    if (!nullToAbsent || nextStep != null) {
+      map['next_step'] = Variable<String>(nextStep);
+    }
+    if (!nullToAbsent || nextStepDate != null) {
+      map['next_step_date'] = Variable<DateTime>(nextStepDate);
+    }
+    if (!nullToAbsent || notes != null) {
+      map['notes'] = Variable<String>(notes);
+    }
+    return map;
+  }
+
+  PlacementsCompanion toCompanion(bool nullToAbsent) {
+    return PlacementsCompanion(
+      id: Value(id),
+      company: Value(company),
+      role: Value(role),
+      status: Value(status),
+      appliedDate: Value(appliedDate),
+      nextStep: nextStep == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextStep),
+      nextStepDate: nextStepDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(nextStepDate),
+      notes: notes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(notes),
+    );
+  }
+
+  factory PlacementApplication.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return PlacementApplication(
+      id: serializer.fromJson<String>(json['id']),
+      company: serializer.fromJson<String>(json['company']),
+      role: serializer.fromJson<String>(json['role']),
+      status: serializer.fromJson<String>(json['status']),
+      appliedDate: serializer.fromJson<DateTime>(json['appliedDate']),
+      nextStep: serializer.fromJson<String?>(json['nextStep']),
+      nextStepDate: serializer.fromJson<DateTime?>(json['nextStepDate']),
+      notes: serializer.fromJson<String?>(json['notes']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'company': serializer.toJson<String>(company),
+      'role': serializer.toJson<String>(role),
+      'status': serializer.toJson<String>(status),
+      'appliedDate': serializer.toJson<DateTime>(appliedDate),
+      'nextStep': serializer.toJson<String?>(nextStep),
+      'nextStepDate': serializer.toJson<DateTime?>(nextStepDate),
+      'notes': serializer.toJson<String?>(notes),
+    };
+  }
+
+  PlacementApplication copyWith({
+    String? id,
+    String? company,
+    String? role,
+    String? status,
+    DateTime? appliedDate,
+    Value<String?> nextStep = const Value.absent(),
+    Value<DateTime?> nextStepDate = const Value.absent(),
+    Value<String?> notes = const Value.absent(),
+  }) => PlacementApplication(
+    id: id ?? this.id,
+    company: company ?? this.company,
+    role: role ?? this.role,
+    status: status ?? this.status,
+    appliedDate: appliedDate ?? this.appliedDate,
+    nextStep: nextStep.present ? nextStep.value : this.nextStep,
+    nextStepDate: nextStepDate.present ? nextStepDate.value : this.nextStepDate,
+    notes: notes.present ? notes.value : this.notes,
+  );
+  PlacementApplication copyWithCompanion(PlacementsCompanion data) {
+    return PlacementApplication(
+      id: data.id.present ? data.id.value : this.id,
+      company: data.company.present ? data.company.value : this.company,
+      role: data.role.present ? data.role.value : this.role,
+      status: data.status.present ? data.status.value : this.status,
+      appliedDate: data.appliedDate.present
+          ? data.appliedDate.value
+          : this.appliedDate,
+      nextStep: data.nextStep.present ? data.nextStep.value : this.nextStep,
+      nextStepDate: data.nextStepDate.present
+          ? data.nextStepDate.value
+          : this.nextStepDate,
+      notes: data.notes.present ? data.notes.value : this.notes,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlacementApplication(')
+          ..write('id: $id, ')
+          ..write('company: $company, ')
+          ..write('role: $role, ')
+          ..write('status: $status, ')
+          ..write('appliedDate: $appliedDate, ')
+          ..write('nextStep: $nextStep, ')
+          ..write('nextStepDate: $nextStepDate, ')
+          ..write('notes: $notes')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    company,
+    role,
+    status,
+    appliedDate,
+    nextStep,
+    nextStepDate,
+    notes,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is PlacementApplication &&
+          other.id == this.id &&
+          other.company == this.company &&
+          other.role == this.role &&
+          other.status == this.status &&
+          other.appliedDate == this.appliedDate &&
+          other.nextStep == this.nextStep &&
+          other.nextStepDate == this.nextStepDate &&
+          other.notes == this.notes);
+}
+
+class PlacementsCompanion extends UpdateCompanion<PlacementApplication> {
+  final Value<String> id;
+  final Value<String> company;
+  final Value<String> role;
+  final Value<String> status;
+  final Value<DateTime> appliedDate;
+  final Value<String?> nextStep;
+  final Value<DateTime?> nextStepDate;
+  final Value<String?> notes;
+  final Value<int> rowid;
+  const PlacementsCompanion({
+    this.id = const Value.absent(),
+    this.company = const Value.absent(),
+    this.role = const Value.absent(),
+    this.status = const Value.absent(),
+    this.appliedDate = const Value.absent(),
+    this.nextStep = const Value.absent(),
+    this.nextStepDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  PlacementsCompanion.insert({
+    required String id,
+    required String company,
+    required String role,
+    required String status,
+    required DateTime appliedDate,
+    this.nextStep = const Value.absent(),
+    this.nextStepDate = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       company = Value(company),
+       role = Value(role),
+       status = Value(status),
+       appliedDate = Value(appliedDate);
+  static Insertable<PlacementApplication> custom({
+    Expression<String>? id,
+    Expression<String>? company,
+    Expression<String>? role,
+    Expression<String>? status,
+    Expression<DateTime>? appliedDate,
+    Expression<String>? nextStep,
+    Expression<DateTime>? nextStepDate,
+    Expression<String>? notes,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (company != null) 'company': company,
+      if (role != null) 'role': role,
+      if (status != null) 'status': status,
+      if (appliedDate != null) 'applied_date': appliedDate,
+      if (nextStep != null) 'next_step': nextStep,
+      if (nextStepDate != null) 'next_step_date': nextStepDate,
+      if (notes != null) 'notes': notes,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  PlacementsCompanion copyWith({
+    Value<String>? id,
+    Value<String>? company,
+    Value<String>? role,
+    Value<String>? status,
+    Value<DateTime>? appliedDate,
+    Value<String?>? nextStep,
+    Value<DateTime?>? nextStepDate,
+    Value<String?>? notes,
+    Value<int>? rowid,
+  }) {
+    return PlacementsCompanion(
+      id: id ?? this.id,
+      company: company ?? this.company,
+      role: role ?? this.role,
+      status: status ?? this.status,
+      appliedDate: appliedDate ?? this.appliedDate,
+      nextStep: nextStep ?? this.nextStep,
+      nextStepDate: nextStepDate ?? this.nextStepDate,
+      notes: notes ?? this.notes,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (company.present) {
+      map['company'] = Variable<String>(company.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (appliedDate.present) {
+      map['applied_date'] = Variable<DateTime>(appliedDate.value);
+    }
+    if (nextStep.present) {
+      map['next_step'] = Variable<String>(nextStep.value);
+    }
+    if (nextStepDate.present) {
+      map['next_step_date'] = Variable<DateTime>(nextStepDate.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('PlacementsCompanion(')
+          ..write('id: $id, ')
+          ..write('company: $company, ')
+          ..write('role: $role, ')
+          ..write('status: $status, ')
+          ..write('appliedDate: $appliedDate, ')
+          ..write('nextStep: $nextStep, ')
+          ..write('nextStepDate: $nextStepDate, ')
+          ..write('notes: $notes, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AnchorDatabase extends GeneratedDatabase {
   _$AnchorDatabase(QueryExecutor e) : super(e);
   $AnchorDatabaseManager get managers => $AnchorDatabaseManager(this);
@@ -6040,6 +6560,7 @@ abstract class _$AnchorDatabase extends GeneratedDatabase {
     this,
   );
   late final $WhatsappGroupsTable whatsappGroups = $WhatsappGroupsTable(this);
+  late final $PlacementsTable placements = $PlacementsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -6055,6 +6576,7 @@ abstract class _$AnchorDatabase extends GeneratedDatabase {
     chatMessages,
     whatsappDigests,
     whatsappGroups,
+    placements,
   ];
 }
 
@@ -8954,6 +9476,275 @@ typedef $$WhatsappGroupsTableProcessedTableManager =
       WhatsappGroup,
       PrefetchHooks Function()
     >;
+typedef $$PlacementsTableCreateCompanionBuilder =
+    PlacementsCompanion Function({
+      required String id,
+      required String company,
+      required String role,
+      required String status,
+      required DateTime appliedDate,
+      Value<String?> nextStep,
+      Value<DateTime?> nextStepDate,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+typedef $$PlacementsTableUpdateCompanionBuilder =
+    PlacementsCompanion Function({
+      Value<String> id,
+      Value<String> company,
+      Value<String> role,
+      Value<String> status,
+      Value<DateTime> appliedDate,
+      Value<String?> nextStep,
+      Value<DateTime?> nextStepDate,
+      Value<String?> notes,
+      Value<int> rowid,
+    });
+
+class $$PlacementsTableFilterComposer
+    extends Composer<_$AnchorDatabase, $PlacementsTable> {
+  $$PlacementsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get company => $composableBuilder(
+    column: $table.company,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get appliedDate => $composableBuilder(
+    column: $table.appliedDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get nextStep => $composableBuilder(
+    column: $table.nextStep,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get nextStepDate => $composableBuilder(
+    column: $table.nextStepDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$PlacementsTableOrderingComposer
+    extends Composer<_$AnchorDatabase, $PlacementsTable> {
+  $$PlacementsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get company => $composableBuilder(
+    column: $table.company,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get role => $composableBuilder(
+    column: $table.role,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get status => $composableBuilder(
+    column: $table.status,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get appliedDate => $composableBuilder(
+    column: $table.appliedDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get nextStep => $composableBuilder(
+    column: $table.nextStep,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get nextStepDate => $composableBuilder(
+    column: $table.nextStepDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$PlacementsTableAnnotationComposer
+    extends Composer<_$AnchorDatabase, $PlacementsTable> {
+  $$PlacementsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get company =>
+      $composableBuilder(column: $table.company, builder: (column) => column);
+
+  GeneratedColumn<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get appliedDate => $composableBuilder(
+    column: $table.appliedDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get nextStep =>
+      $composableBuilder(column: $table.nextStep, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get nextStepDate => $composableBuilder(
+    column: $table.nextStepDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+}
+
+class $$PlacementsTableTableManager
+    extends
+        RootTableManager<
+          _$AnchorDatabase,
+          $PlacementsTable,
+          PlacementApplication,
+          $$PlacementsTableFilterComposer,
+          $$PlacementsTableOrderingComposer,
+          $$PlacementsTableAnnotationComposer,
+          $$PlacementsTableCreateCompanionBuilder,
+          $$PlacementsTableUpdateCompanionBuilder,
+          (
+            PlacementApplication,
+            BaseReferences<
+              _$AnchorDatabase,
+              $PlacementsTable,
+              PlacementApplication
+            >,
+          ),
+          PlacementApplication,
+          PrefetchHooks Function()
+        > {
+  $$PlacementsTableTableManager(_$AnchorDatabase db, $PlacementsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$PlacementsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$PlacementsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$PlacementsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> company = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> status = const Value.absent(),
+                Value<DateTime> appliedDate = const Value.absent(),
+                Value<String?> nextStep = const Value.absent(),
+                Value<DateTime?> nextStepDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlacementsCompanion(
+                id: id,
+                company: company,
+                role: role,
+                status: status,
+                appliedDate: appliedDate,
+                nextStep: nextStep,
+                nextStepDate: nextStepDate,
+                notes: notes,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String company,
+                required String role,
+                required String status,
+                required DateTime appliedDate,
+                Value<String?> nextStep = const Value.absent(),
+                Value<DateTime?> nextStepDate = const Value.absent(),
+                Value<String?> notes = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => PlacementsCompanion.insert(
+                id: id,
+                company: company,
+                role: role,
+                status: status,
+                appliedDate: appliedDate,
+                nextStep: nextStep,
+                nextStepDate: nextStepDate,
+                notes: notes,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$PlacementsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AnchorDatabase,
+      $PlacementsTable,
+      PlacementApplication,
+      $$PlacementsTableFilterComposer,
+      $$PlacementsTableOrderingComposer,
+      $$PlacementsTableAnnotationComposer,
+      $$PlacementsTableCreateCompanionBuilder,
+      $$PlacementsTableUpdateCompanionBuilder,
+      (
+        PlacementApplication,
+        BaseReferences<
+          _$AnchorDatabase,
+          $PlacementsTable,
+          PlacementApplication
+        >,
+      ),
+      PlacementApplication,
+      PrefetchHooks Function()
+    >;
 
 class $AnchorDatabaseManager {
   final _$AnchorDatabase _db;
@@ -8978,4 +9769,6 @@ class $AnchorDatabaseManager {
       $$WhatsappDigestsTableTableManager(_db, _db.whatsappDigests);
   $$WhatsappGroupsTableTableManager get whatsappGroups =>
       $$WhatsappGroupsTableTableManager(_db, _db.whatsappGroups);
+  $$PlacementsTableTableManager get placements =>
+      $$PlacementsTableTableManager(_db, _db.placements);
 }

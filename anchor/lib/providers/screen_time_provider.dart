@@ -2,7 +2,6 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/services/usage_stats_service.dart';
-import '../data/local/daos/screen_time_dao.dart';
 import '../data/local/database.dart';
 import '../data/local/tables/screen_time_table.dart';
 import 'database_provider.dart';

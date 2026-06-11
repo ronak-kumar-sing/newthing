@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 /// Service for interacting with Android UsageStatsManager via platform channel.
@@ -27,7 +28,7 @@ class UsageStatsService {
   ///
   /// Returns `true` if granted, `false` otherwise (or on non-Android platforms).
   Future<bool> hasPermission() async {
-    if (!Platform.isAndroid) return false;
+    if (kIsWeb || !Platform.isAndroid) return false;
     try {
       final granted = await _channel.invokeMethod<bool>('checkUsageStatsPermission');
       return granted ?? false;
@@ -42,7 +43,7 @@ class UsageStatsService {
   /// The user must manually toggle the permission on. Call [hasPermission]
   /// after the user returns to check if they granted it.
   Future<void> requestPermission() async {
-    if (!Platform.isAndroid) return;
+    if (kIsWeb || !Platform.isAndroid) return;
     try {
       await _channel.invokeMethod('requestUsageStatsPermission');
     } catch (e) {
@@ -57,7 +58,7 @@ class UsageStatsService {
   ///
   /// Returns empty list if permission is not granted or on non-Android.
   Future<List<AppUsageStat>> getUsageStats(DateTime start, DateTime end) async {
-    if (!Platform.isAndroid) return [];
+    if (kIsWeb || !Platform.isAndroid) return [];
     try {
       final result = await _channel.invokeListMethod<Map>('getUsageStats', {
         'startTime': start.millisecondsSinceEpoch,
@@ -77,7 +78,7 @@ class UsageStatsService {
   ///
   /// Returns empty list if permission is not granted or on non-Android.
   Future<List<UsageEvent>> getUsageEvents(DateTime start, DateTime end) async {
-    if (!Platform.isAndroid) return [];
+    if (kIsWeb || !Platform.isAndroid) return [];
     try {
       final result = await _channel.invokeListMethod<Map>('getUsageEvents', {
         'startTime': start.millisecondsSinceEpoch,
@@ -110,7 +111,7 @@ class UsageStatsService {
     Duration interval = const Duration(seconds: 1),
     int maxAttempts = 30,
   }) async* {
-    if (!Platform.isAndroid) {
+    if (kIsWeb || !Platform.isAndroid) {
       yield false;
       return;
     }

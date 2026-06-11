@@ -32,7 +32,14 @@ class GeminiApi {
 
   /// Test connectivity — sends a simple prompt and checks for a valid response.
   Future<bool> testConnection() async {
-    if (!isConfigured) return false;
+    final result = await testConnectionWithDetails();
+    return result.$1;
+  }
+
+  /// Test connectivity with detailed error info.
+  /// Returns (success, errorMessage).
+  Future<(bool, String?)> testConnectionWithDetails() async {
+    if (!isConfigured) return (false, 'API key is not set');
     try {
       final response = await _dio.post(
         '/models/$_model:generateContent?key=$_apiKey',
@@ -51,10 +58,35 @@ class GeminiApi {
         },
       );
       final candidates = response.data['candidates'] as List<dynamic>?;
-      return candidates != null && candidates.isNotEmpty;
+      if (candidates != null && candidates.isNotEmpty) {
+        return (true, null);
+      }
+      return (false, 'No candidates returned. The model may be unavailable.');
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final body = e.response?.data;
+      String errorDetail;
+      switch (statusCode) {
+        case 400:
+          errorDetail = 'Invalid API key or malformed request. Check your key.';
+          break;
+        case 403:
+          errorDetail = 'API key does not have access. Check quota/permissions.';
+          break;
+        case 404:
+          errorDetail = 'Model "$_model" not found. Try a different model.';
+          break;
+        case 429:
+          errorDetail = 'Rate limited. Too many requests — try again later.';
+          break;
+        default:
+          errorDetail = 'HTTP $statusCode: ${body ?? e.message}';
+      }
+      debugPrint('Gemini testConnection error ($statusCode): $body');
+      return (false, errorDetail);
     } catch (e) {
       debugPrint('Gemini testConnection error: $e');
-      return false;
+      return (false, 'Connection error: $e');
     }
   }
 

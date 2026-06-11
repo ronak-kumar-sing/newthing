@@ -8,6 +8,7 @@ import '../data/local/daos/settings_dao.dart';
 import '../data/local/daos/task_dao.dart';
 import '../data/local/daos/chat_dao.dart';
 import '../data/local/daos/whatsapp_dao.dart';
+import '../data/local/daos/placement_dao.dart';
 
 /// Singleton database instance provider.
 final databaseProvider = Provider<AnchorDatabase>((ref) {
@@ -230,7 +231,44 @@ void _seedDemoData(AnchorDatabase db) async {
         ));
       }
     }
+
+    // Check if Placements are empty
+    final existingPlacements = await db.select(db.placements).get();
+    if (existingPlacements.isEmpty) {
+      final now = DateTime.now();
+      await db.into(db.placements).insert(PlacementApplication(
+        id: '1',
+        company: 'TechFlow Inc.',
+        role: 'Frontend Engineer',
+        status: 'interview',
+        appliedDate: now.subtract(const Duration(days: 5)),
+        nextStep: 'Technical Interview on June 15',
+        nextStepDate: now.add(const Duration(days: 7)),
+      ));
+      await db.into(db.placements).insert(PlacementApplication(
+        id: '2',
+        company: 'Starlight Corp',
+        role: 'UX Designer',
+        status: 'applied',
+        appliedDate: now.subtract(const Duration(days: 12)),
+      ));
+      await db.into(db.placements).insert(PlacementApplication(
+        id: '3',
+        company: 'Nexus Data',
+        role: 'Data Analyst',
+        status: 'offer',
+        appliedDate: now.subtract(const Duration(days: 20)),
+      ));
+      await db.into(db.placements).insert(PlacementApplication(
+        id: '4',
+        company: 'Global Sys',
+        role: 'Backend Dev',
+        status: 'rejected',
+        appliedDate: now.subtract(const Duration(days: 30)),
+      ));
+    }
   } catch (e) {
+
     // Fail silently
   }
 }
@@ -276,3 +314,10 @@ final whatsappDaoProvider = Provider<WhatsappDao>((ref) {
   final db = ref.watch(databaseProvider);
   return WhatsappDao(db);
 });
+
+/// Placement DAO provider.
+final placementDaoProvider = Provider<PlacementDao>((ref) {
+  final db = ref.watch(databaseProvider);
+  return PlacementDao(db);
+});
+

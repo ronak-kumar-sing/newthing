@@ -13,14 +13,17 @@ import '../../core/widgets/anchor_background.dart';
 import '../../core/router/app_router.dart';
 import '../../data/local/database.dart';
 import '../../models/progress_model.dart';
+import '../../models/life_progress_point.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/progress_provider.dart';
+import '../../core/widgets/segmented_progress_bar.dart';
+import 'widgets/life_trend_chart.dart';
+import 'widgets/log_today_sheet.dart';
+import 'widgets/workout_log_sheet.dart';
 
 enum Period { week, month }
 
 final selectedPeriodProvider = StateProvider<Period>((ref) => Period.week);
-
-final selectedDimensionIdProvider = StateProvider<String?>((ref) => null);
 
 final progressDataProvider = FutureProvider<List<WeeklyProgress>>((ref) async {
   final period = ref.watch(selectedPeriodProvider);
@@ -92,38 +95,8 @@ final weeklyChartDataProvider = FutureProvider<Map<int, double>>((ref) async {
   return result;
 });
 
-class AiInsightData {
-  final String studyTrend;
-  final String studyTrendDirection;
-  final String studyTrendPercent;
-  final String gymFocusStatus;
-  final String gymFocusSub;
-  final int overdueTasksCount;
-
-  const AiInsightData({
-    required this.studyTrend,
-    required this.studyTrendDirection,
-    required this.studyTrendPercent,
-    required this.gymFocusStatus,
-    required this.gymFocusSub,
-    required this.overdueTasksCount,
-  });
-}
-
-final aiInsightProvider = FutureProvider<AiInsightData>((ref) async {
-  await Future.delayed(const Duration(milliseconds: 1200));
-  final taskDao = ref.watch(taskDaoProvider);
-  final overdueCount = await taskDao.getOverdueTasks().then((list) => list.length);
-
-  return AiInsightData(
-    studyTrend: "Study Trend",
-    studyTrendDirection: "up",
-    studyTrendPercent: "17%",
-    gymFocusStatus: "Paused",
-    gymFocusSub: "Light workout advised",
-    overdueTasksCount: overdueCount,
-  );
-});
+// AiInsightData and aiInsightProvider replaced by RealInsightData/realInsightProvider
+// from progress_provider.dart
 
 class LifeProgressScreen extends ConsumerWidget {
   const LifeProgressScreen({super.key});
@@ -176,6 +149,13 @@ class LifeProgressScreen extends ConsumerWidget {
                   return ScaleOnPress(
                     onTap: () {
                       ref.read(selectedDimensionIdProvider.notifier).state = item.dimensionId;
+                      // Open log today sheet on tap
+                      showModalBottomSheet(
+                        context: context,
+                        isScrollControlled: true,
+                        backgroundColor: Colors.transparent,
+                        builder: (_) => LogTodaySheet(progress: item),
+                      );
                     },
                     child: _buildDimensionCard(item, isSelected)
                         .animate(delay: (index * 80).ms)
@@ -195,27 +175,49 @@ class LifeProgressScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 24),
 
-          // 3. Weekly Chart Card
+          // 3. Multi-line Performance Trend Chart
+          if (progresses.isNotEmpty) ...[
+            ref.watch(lifeTrendDataProvider).when(
+              data: (points) => ScaleOnPress(
+                child: LifeTrendChart(data: points)
+                    .animate(delay: ((progresses.length) * 80).ms)
+                    .fadeIn(duration: 300.ms)
+                    .slideY(begin: 0.08, end: 0, duration: 300.ms),
+              ),
+              loading: () => const SizedBox(
+                height: 240,
+                child: Center(child: CircularProgressIndicator(color: AnchorTheme.accent)),
+              ),
+              error: (e, s) => const SizedBox(),
+            ),
+            const SizedBox(height: 24),
+          ],
+
+          // 4. Weekly Detail Chart Card
           if (progresses.isNotEmpty)
             ScaleOnPress(
               child: _buildWeeklyChartCard(context, ref, progresses)
-                  .animate(delay: ((progresses.length) * 80).ms)
+                  .animate(delay: ((progresses.length + 0.5) * 80).ms)
                   .fadeIn(duration: 300.ms)
                   .slideY(begin: 0.08, end: 0, duration: 300.ms),
             ),
           const SizedBox(height: 24),
 
-          // 4. Streaks Card
-          ScaleOnPress(
-            child: _buildStreaksCard()
-                .animate(delay: ((progresses.length + 1) * 80).ms)
-                .fadeIn(duration: 300.ms)
-                .slideY(begin: 0.08, end: 0, duration: 300.ms),
+          // 5. Streaks Card (from DB)
+          ref.watch(streakDataProvider).when(
+            data: (streaks) => ScaleOnPress(
+              child: _buildStreaksCardFromDB(streaks)
+                  .animate(delay: ((progresses.length + 1) * 80).ms)
+                  .fadeIn(duration: 300.ms)
+                  .slideY(begin: 0.08, end: 0, duration: 300.ms),
+            ),
+            loading: () => const SizedBox(),
+            error: (e, s) => const SizedBox(),
           ),
           const SizedBox(height: 24),
 
-          // 5. Insights Section
-          _buildInsightsSection(context, ref, progresses.length),
+          // 6. Insights Section (real data)
+          _buildRealInsightsSection(context, ref, progresses.length),
         ],
       ),
     );
@@ -431,19 +433,14 @@ class LifeProgressScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 8),
-            TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0.0, end: progress.progressPercent),
-              duration: const Duration(milliseconds: 800),
-              curve: Curves.easeOutCubic,
-              builder: (ctx, val, _) => ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: val,
-                  backgroundColor: Colors.white.withOpacity(0.10),
-                  valueColor: const AlwaysStoppedAnimation(Color(0xFFC6F52C)),
-                  minHeight: 5,
-                ),
-              ),
+            SegmentedProgressBar(
+              progress: progress.progressPercent,
+              segments: 10,
+              height: 5,
+              spacing: 4,
+              activeColor: const Color(0xFFC6F52C),
+              backgroundColor: Colors.white.withOpacity(0.10),
+              borderRadius: BorderRadius.circular(4),
             ),
           ],
         ),
@@ -453,29 +450,26 @@ class LifeProgressScreen extends ConsumerWidget {
 
   Widget _buildWeeklyChartCard(BuildContext context, WidgetRef ref, List<WeeklyProgress> progresses) {
     final selectedId = ref.watch(selectedDimensionIdProvider);
+    final weekOffset = ref.watch(weekOffsetProvider);
     final selectedProgress = progresses.firstWhere(
       (p) => p.dimensionId == selectedId,
       orElse: () => progresses.first,
     );
 
-    int? delta;
-    IconData? trendIcon;
-    final lastWeek = selectedProgress.lastWeekTotal;
-    final current = selectedProgress.currentWeekTotal;
-    if (lastWeek > 0) {
-      final pct = ((current - lastWeek) / lastWeek * 100).round();
-      delta = pct.abs();
-      if (pct > 0) {
-        trendIcon = Icons.arrow_upward;
-      } else if (pct < 0) {
-        trendIcon = Icons.arrow_downward;
-      }
-    }
-
     final accentColor = const Color(0xFFC6F52C);
-    final chartDataAsync = ref.watch(weeklyChartDataProvider);
+    final chartDataAsync = ref.watch(weeklyChartDataForOffsetProvider);
     final chartValues = chartDataAsync.valueOrNull ?? {};
     final todayWeekday = DateTime.now().weekday;
+
+    // Week label
+    String weekLabel;
+    if (weekOffset == 0) {
+      weekLabel = 'This Week';
+    } else if (weekOffset == 1) {
+      weekLabel = 'Last Week';
+    } else {
+      weekLabel = '$weekOffset weeks ago';
+    }
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -496,74 +490,32 @@ class LifeProgressScreen extends ConsumerWidget {
                     color: Colors.white.withOpacity(0.80),
                   ),
                 ),
-                if (delta != null)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (trendIcon != null)
-                        Icon(trendIcon, size: 12, color: accentColor),
-                      const SizedBox(width: 2),
-                      Text(
-                        '$delta%',
-                        style: GoogleFonts.spaceGrotesk(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: accentColor,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'vs last week',
-                        style: GoogleFonts.plusJakartaSans(
-                          fontSize: 10,
-                          color: Colors.white.withOpacity(0.35),
-                        ),
-                        textAlign: TextAlign.right,
-                      ),
-                    ],
-                  )
-                else
-                  Text(
-                    '--',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 13,
-                      color: Colors.white.withOpacity(0.30),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    GestureDetector(
+                      onTap: () => ref.read(weekOffsetProvider.notifier).state = weekOffset + 1,
+                      child: Icon(Icons.chevron_left, size: 20, color: Colors.white.withOpacity(0.5)),
                     ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: selectedProgress.currentWeekTotal),
-                  duration: const Duration(milliseconds: 600),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, value, _) {
-                    final valStr = value % 1 == 0 ? value.toInt().toString() : value.toStringAsFixed(1);
-                    return Text(
-                      valStr,
-                      style: GoogleFonts.spaceGrotesk(
-                        fontSize: 42,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                        height: 1.0,
+                    const SizedBox(width: 4),
+                    Text(
+                      weekLabel,
+                      style: GoogleFonts.plusJakartaSans(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white.withOpacity(0.50),
                       ),
-                    );
-                  },
-                ),
-                const SizedBox(width: 4),
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4.0),
-                  child: Text(
-                    '${selectedProgress.unit} avg',
-                    style: GoogleFonts.plusJakartaSans(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withOpacity(0.45),
                     ),
-                  ),
+                    const SizedBox(width: 4),
+                    GestureDetector(
+                      onTap: weekOffset > 0 ? () => ref.read(weekOffsetProvider.notifier).state = weekOffset - 1 : null,
+                      child: Icon(
+                        Icons.chevron_right,
+                        size: 20,
+                        color: weekOffset > 0 ? Colors.white.withOpacity(0.5) : Colors.white.withOpacity(0.15),
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -638,7 +590,7 @@ class LifeProgressScreen extends ConsumerWidget {
                   borderData: FlBorderData(show: false),
                   barGroups: List.generate(7, (i) {
                     final dayIndex = i + 1;
-                    final isToday = dayIndex == todayWeekday;
+                    final isToday = weekOffset == 0 && dayIndex == todayWeekday;
                     final val = chartValues[dayIndex] ?? 0.0;
 
                     Color barColor;
@@ -673,12 +625,8 @@ class LifeProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildStreaksCard() {
-    final streaksList = [
-      const StreakItem('Daily Study', 7, 14),
-      const StreakItem('Gym', 3, 5),
-      const StreakItem('Coding', 12, 14),
-    ];
+  Widget _buildStreaksCardFromDB(List<StreakData> streaks) {
+    if (streaks.isEmpty) return const SizedBox();
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
@@ -709,8 +657,10 @@ class LifeProgressScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Column(
-              children: List.generate(streaksList.length, (index) {
-                final item = streaksList[index];
+              children: List.generate(streaks.length, (index) {
+                final item = streaks[index];
+                final ringColor = Color(int.parse(item.colorHex.replaceFirst('#', '0xFF')));
+                final progress = item.targetStreak > 0 ? item.currentStreak / item.targetStreak : 0.0;
                 return Column(
                   children: [
                     if (index > 0)
@@ -723,7 +673,7 @@ class LifeProgressScreen extends ConsumerWidget {
                       child: Row(
                         children: [
                           Text(
-                            item.name,
+                            item.dimensionName,
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 15,
                               fontWeight: FontWeight.w500,
@@ -732,7 +682,7 @@ class LifeProgressScreen extends ConsumerWidget {
                           ),
                           const Spacer(),
                           Text(
-                            '${item.current}/${item.target}',
+                            '${item.currentStreak}/${item.targetStreak}d',
                             style: GoogleFonts.plusJakartaSans(
                               fontSize: 13,
                               fontWeight: FontWeight.w500,
@@ -741,26 +691,30 @@ class LifeProgressScreen extends ConsumerWidget {
                           ),
                           const SizedBox(width: 12),
                           TweenAnimationBuilder<double>(
-                            tween: Tween(begin: 0.0, end: item.current / item.target),
+                            tween: Tween(begin: 0.0, end: progress.clamp(0.0, 1.0)),
                             duration: const Duration(milliseconds: 800),
                             curve: Curves.easeOutCubic,
                             builder: (ctx, val, _) => CustomPaint(
                               painter: StreakRingPainter(
                                 progress: val,
                                 trackColor: Colors.white.withOpacity(0.10),
-                                arcColor: const Color(0xFFC6F52C),
+                                arcColor: ringColor,
                                 strokeWidth: 2.5,
                               ),
                               child: SizedBox(
                                 width: 44,
                                 height: 44,
                                 child: Center(
-                                  child: Text(
-                                    item.current.toString(),
-                                    style: GoogleFonts.spaceGrotesk(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w700,
-                                      color: Colors.white,
+                                  child: TweenAnimationBuilder<int>(
+                                    tween: IntTween(begin: 0, end: item.currentStreak),
+                                    duration: const Duration(milliseconds: 600),
+                                    builder: (ctx, val, _) => Text(
+                                      val.toString(),
+                                      style: GoogleFonts.spaceGrotesk(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 ),
@@ -780,8 +734,8 @@ class LifeProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildInsightsSection(BuildContext context, WidgetRef ref, int progressesLength) {
-    final insightAsync = ref.watch(aiInsightProvider);
+  Widget _buildRealInsightsSection(BuildContext context, WidgetRef ref, int progressesLength) {
+    final insightAsync = ref.watch(realInsightProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -802,7 +756,7 @@ class LifeProgressScreen extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: ScaleOnPress(
-                      child: _buildMiniInsightCard1(data)
+                      child: _buildMiniInsightCard1Real(data)
                           .animate(delay: ((progressesLength + 2) * 80).ms)
                           .fadeIn(duration: 300.ms)
                           .slideY(begin: 0.08, end: 0, duration: 300.ms),
@@ -811,7 +765,16 @@ class LifeProgressScreen extends ConsumerWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: ScaleOnPress(
-                      child: _buildMiniInsightCard2(data)
+                      onTap: () {
+                        // Open workout log on gym focus tap
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.transparent,
+                          builder: (_) => const WorkoutLogSheet(),
+                        );
+                      },
+                      child: _buildMiniInsightCard2Real(data)
                           .animate(delay: ((progressesLength + 3) * 80).ms)
                           .fadeIn(duration: 300.ms)
                           .slideY(begin: 0.08, end: 0, duration: 300.ms),
@@ -824,7 +787,7 @@ class LifeProgressScreen extends ConsumerWidget {
                 onTap: () {
                   context.go(Routes.taskCenter);
                 },
-                child: _buildWideInsightCard(data)
+                child: _buildWideInsightCardReal(data)
                     .animate(delay: ((progressesLength + 4) * 80).ms)
                     .fadeIn(duration: 300.ms)
                     .slideY(begin: 0.08, end: 0, duration: 300.ms),
@@ -838,8 +801,14 @@ class LifeProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMiniInsightCard1(AiInsightData data) {
+  Widget _buildMiniInsightCard1Real(RealInsightData data) {
     final accentColor = const Color(0xFFC6F52C);
+    final trendIcon = data.studyTrendDirection == 'up' ? Icons.trending_up
+        : data.studyTrendDirection == 'down' ? Icons.trending_down
+        : Icons.trending_flat;
+    final trendColor = data.studyTrendDirection == 'up' ? accentColor
+        : data.studyTrendDirection == 'down' ? const Color(0xFFFF5252)
+        : Colors.white.withOpacity(0.45);
     return GlassCard(
       padding: const EdgeInsets.all(14),
       borderRadius: 20,
@@ -885,13 +854,13 @@ class LifeProgressScreen extends ConsumerWidget {
               const SizedBox(height: 4),
               Row(
                 children: [
-                  Icon(Icons.trending_up, size: 12, color: accentColor),
+                  Icon(trendIcon, size: 12, color: trendColor),
                   const SizedBox(width: 4),
                   Text(
                     'vs last week',
                     style: GoogleFonts.plusJakartaSans(
                       fontSize: 11,
-                      color: accentColor,
+                      color: trendColor,
                     ),
                   ),
                 ],
@@ -903,7 +872,7 @@ class LifeProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildMiniInsightCard2(AiInsightData data) {
+  Widget _buildMiniInsightCard2Real(RealInsightData data) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       borderRadius: 20,
@@ -956,7 +925,7 @@ class LifeProgressScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildWideInsightCard(AiInsightData data) {
+  Widget _buildWideInsightCardReal(RealInsightData data) {
     return GlassCard(
       padding: const EdgeInsets.all(14),
       borderRadius: 20,
@@ -974,16 +943,18 @@ class LifeProgressScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              const Icon(
-                Icons.warning_amber_rounded,
+              Icon(
+                data.overdueTasksCount > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline,
                 size: 16,
-                color: Color(0xFFFF9800),
+                color: data.overdueTasksCount > 0 ? const Color(0xFFFF9800) : const Color(0xFFC6F52C),
               ),
             ],
           ),
           const SizedBox(height: 6),
           Text(
-            '${data.overdueTasksCount} overdue',
+            data.overdueTasksCount > 0
+                ? '${data.overdueTasksCount} overdue'
+                : 'All clear',
             style: GoogleFonts.spaceGrotesk(
               fontSize: 20,
               fontWeight: FontWeight.w700,
@@ -992,7 +963,9 @@ class LifeProgressScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 3),
           Text(
-            'Prioritize these next',
+            data.overdueTasksCount > 0
+                ? 'Prioritize these next'
+                : 'No overdue tasks — keep it up!',
             style: GoogleFonts.plusJakartaSans(
               fontSize: 12,
               color: Colors.white.withOpacity(0.45),

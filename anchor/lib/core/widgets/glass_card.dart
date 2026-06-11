@@ -54,11 +54,9 @@ class GlassCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: surfaceColor,
         borderRadius: BorderRadius.circular(borderRadius),
-        border: Border(
-          top: BorderSide(color: AnchorTheme.rimTop, width: 1),
-          left: BorderSide(color: AnchorTheme.rimSide, width: 1),
-          right: BorderSide(color: AnchorTheme.rimSide, width: 1),
-          bottom: BorderSide(color: AnchorTheme.rimBottom, width: 1),
+        border: Border.all(
+          color: AnchorTheme.cardBorder,
+          width: 1,
         ),
       ),
       child: hasAccent

@@ -11,6 +11,7 @@ import 'core/theme/app_theme.dart';
 import 'data/local/database.dart' show AppSettingsCompanion;
 import 'providers/api_provider.dart';
 import 'providers/database_provider.dart';
+import 'features/streak/services/widget_sync_service.dart';
 
 /// Anchor app widget.
 /// Shows permission screen on first launch, then the main app.
@@ -108,19 +109,18 @@ class _ApiInitializerState extends ConsumerState<_ApiInitializer> {
       ));
     }
 
-    // Start WhatsApp bridge (non-blocking, fails gracefully)
-    final bridge = ref.read(whatsappBridgeApiProvider);
-    bridge.startBridge().then((started) {
-      if (started) {
-        debugPrint('[App] WhatsApp bridge started');
-      } else {
-        debugPrint('[App] WhatsApp bridge unavailable (Node.js not found or not installed)');
-      }
-    });
+    // WhatsApp bridge is NOT auto-started on mobile.
+    // Users can trigger WhatsApp via URL deeplinks instead.
+    // The Node.js bridge remains available for desktop builds only.
+    debugPrint('[App] WhatsApp bridge auto-start disabled (mobile-incompatible)');
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    // Reactively monitor and sync streak/task data changes to native OS widgets
+    ref.watch(widgetSyncProvider);
+    return widget.child;
+  }
 }
 
 class _LoadingScreen extends StatelessWidget {

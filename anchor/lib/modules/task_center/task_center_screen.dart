@@ -10,6 +10,8 @@ import '../../data/local/database.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/sync_provider.dart';
+import '../../data/remote/sync_service.dart';
 
 // ─── Custom Bouncing Gesture Wrapper ───────────────────────────────────────
 class BouncingButton extends StatefulWidget {
@@ -91,65 +93,6 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Top App Bar ──
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: const BoxDecoration(
-                border: Border(
-                  bottom: BorderSide(color: AnchorTheme.surfaceVariant, width: 1),
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.grid_view,
-                    color: AnchorTheme.textPrimary,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Task Center',
-                    style: GoogleFonts.inter(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: AnchorTheme.textPrimary,
-                    ),
-                  ),
-                  const Spacer(),
-                  // Synced indicator
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: const BoxDecoration(
-                          color: AnchorTheme.accentContainer,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        'SYNCED',
-                        style: GoogleFonts.inter(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 0.5,
-                          color: AnchorTheme.textSecondary,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(width: 16),
-                  const Icon(
-                    Icons.notifications,
-                    color: AnchorTheme.textSecondary,
-                    size: 22,
-                  ),
-                ],
-              ),
-            ),
-
             // Main scrollable canvas containing bento statistics and list
             Expanded(
               child: Column(
@@ -447,7 +390,7 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
 }
 
 // ─── Task List View ────────────────────────────────────────────────────────
-class _TaskList extends StatelessWidget {
+class _TaskList extends ConsumerWidget {
   final AsyncValue<List<Task>> tasksAsync;
   final String emptyMessage;
   final String filterLabel;
@@ -463,7 +406,60 @@ class _TaskList extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    Future<void> onRefresh() async {
+      ref.read(syncStatusProvider.notifier).state = SyncStatus.syncing;
+      try {
+        final result = await ref.read(syncServiceProvider).syncTasks();
+        ref.read(lastSyncResultProvider.notifier).state = result;
+        ref.read(syncStatusProvider.notifier).state = SyncStatus.success;
+        ref.read(lastSyncTimeProvider.notifier).state = DateTime.now();
+
+        ref.invalidate(activeTasksProvider);
+        ref.invalidate(overdueTasksProvider);
+        ref.invalidate(tasksDueTodayProvider);
+        ref.invalidate(completedTasksProvider);
+        ref.invalidate(topTasksProvider);
+
+        if (context.mounted) {
+          final msg = result.hasErrors
+              ? 'Sync completed with errors: ${result.errors.first}'
+              : 'Sync successful: ${result.tasksAdded} added, ${result.tasksPushed} pushed';
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AnchorTheme.cardBgHigh,
+              duration: const Duration(seconds: 2),
+              content: Text(
+                msg,
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: AnchorTheme.textPrimary,
+                ),
+              ),
+            ),
+          );
+        }
+      } catch (e) {
+        ref.read(syncStatusProvider.notifier).state = SyncStatus.error;
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: AnchorTheme.statusRed,
+              content: Text(
+                'Sync failed: $e',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          );
+        }
+      }
+    }
+
     return tasksAsync.when(
       data: (tasks) {
         final filteredTasks = filterLabel == 'All'
@@ -471,40 +467,61 @@ class _TaskList extends StatelessWidget {
             : tasks.where((t) => t.label?.toLowerCase() == filterLabel.toLowerCase()).toList();
 
         if (filteredTasks.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.inbox_outlined, size: 48, color: AnchorTheme.textMuted),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 32),
-                  child: Text(
-                    emptyMessage,
-                    style: GoogleFonts.inter(fontSize: 14, color: AnchorTheme.textMuted),
-                    textAlign: TextAlign.center,
+          return RefreshIndicator(
+            onRefresh: onRefresh,
+            color: AnchorTheme.accent,
+            backgroundColor: AnchorTheme.cardBgHigh,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  child: SizedBox(
+                    height: constraints.maxHeight,
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.inbox_outlined, size: 48, color: AnchorTheme.textMuted),
+                          const SizedBox(height: 16),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 32),
+                            child: Text(
+                              emptyMessage,
+                              style: GoogleFonts.inter(fontSize: 14, color: AnchorTheme.textMuted),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                );
+              },
             ),
           ).animate().fadeIn(duration: 200.ms);
         }
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(20).copyWith(bottom: 100),
-          itemCount: filteredTasks.length,
-          itemBuilder: (context, index) {
-            final task = filteredTasks[index];
-            return BouncingButton(
-              child: _TaskItem(
-                task: task,
-                onAction: () => onAction(task),
-                isCompleted: isCompletedList,
-              ),
-            ).animate(delay: (index * 80).ms)
-             .fadeIn(duration: 300.ms)
-             .slideY(begin: 0.08, end: 0, duration: 300.ms, curve: Curves.easeOut);
-          },
+        return RefreshIndicator(
+          onRefresh: onRefresh,
+          color: AnchorTheme.accent,
+          backgroundColor: AnchorTheme.cardBgHigh,
+          child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20).copyWith(bottom: 100),
+            itemCount: filteredTasks.length,
+            itemBuilder: (context, index) {
+              final task = filteredTasks[index];
+              return BouncingButton(
+                child: _TaskItem(
+                  task: task,
+                  onAction: () => onAction(task),
+                  isCompleted: isCompletedList,
+                ),
+              ).animate(delay: (index * 80).ms)
+               .fadeIn(duration: 300.ms)
+               .slideY(begin: 0.08, end: 0, duration: 300.ms, curve: Curves.easeOut);
+            },
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator(color: AnchorTheme.accent)),
@@ -772,13 +789,15 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    // Extra padding so the floating nav bar doesn't cover the save button
+    final navPadding = bottomInset > 0 ? 0.0 : 80.0;
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF111111),
         border: Border(top: BorderSide(color: Color(0xFF252525), width: 1)),
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomInset),
+      padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + bottomInset + navPadding),
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

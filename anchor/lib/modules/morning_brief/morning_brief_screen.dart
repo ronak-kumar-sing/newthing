@@ -16,6 +16,8 @@ import '../../providers/progress_provider.dart';
 import '../../providers/api_provider.dart';
 import '../../data/remote/weather_api.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
+import '../../core/router/app_router.dart';
 
 /// Weather state provider.
 final weatherProvider = FutureProvider<WeatherData?>((ref) async {
@@ -168,84 +170,98 @@ class MorningBriefScreen extends ConsumerWidget {
   }
 
   Widget _buildHeader(BuildContext context, String name) {
-    final now = DateTime.now();
-    final dateStr = DateFormat('EEEE, d MMM').format(now);
-
-    return Container(
-      padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-      decoration: const BoxDecoration(
-        color: AnchorTheme.background,
-        border: Border(
-          bottom: BorderSide(color: Color(0xFF252525), width: 1),
-        ),
-      ),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 8, 8, 0),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                dateStr.toUpperCase(),
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.5,
-                  color: AnchorTheme.textMuted,
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 24),
+            color: const Color(0xFF161616),
+            surfaceTintColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: const BorderSide(color: Color(0xFF252525), width: 1),
+            ),
+            onSelected: (route) {
+              context.go(route);
+            },
+            itemBuilder: (BuildContext context) => [
+              PopupMenuItem(
+                value: Routes.placementTracker,
+                child: Row(
+                  children: [
+                    const Icon(Icons.work_outline_rounded, color: Color(0xFFC6F52C), size: 18),
+                    const SizedBox(width: 10),
+                    Text('Placement Tracker', style: GoogleFonts.inter(color: Colors.white, fontSize: 14)),
+                  ],
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                'Good morning, $name 👋',
-                style: GoogleFonts.inter(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: -0.5,
-                  color: Colors.white,
+              PopupMenuItem(
+                value: Routes.whatsappDigest,
+                child: Row(
+                  children: [
+                    const Icon(Icons.chat_bubble_outline_rounded, color: Color(0xFFC6F52C), size: 18),
+                    const SizedBox(width: 10),
+                    Text('WhatsApp Digest', style: GoogleFonts.inter(color: Colors.white, fontSize: 14)),
+                  ],
                 ),
               ),
-            ],
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 4),
-              _buildHeaderIndicator('ONLINE'),
-              const SizedBox(height: 6),
-              _buildHeaderIndicator('TODOIST'),
+              PopupMenuItem(
+                value: Routes.screenMirror,
+                child: Row(
+                  children: [
+                    const Icon(Icons.monitor_outlined, color: Color(0xFFC6F52C), size: 18),
+                    const SizedBox(width: 10),
+                    Text('Screen Mirror', style: GoogleFonts.inter(color: Colors.white, fontSize: 14)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: Routes.settings,
+                child: Row(
+                  children: [
+                    const Icon(Icons.settings_outlined, color: Color(0xFFC6F52C), size: 18),
+                    const SizedBox(width: 10),
+                    Text('Settings', style: GoogleFonts.inter(color: Colors.white, fontSize: 14)),
+                  ],
+                ),
+              ),
+              const PopupMenuDivider(height: 1),
+              PopupMenuItem(
+                value: Routes.independenceClock,
+                child: Row(
+                  children: [
+                    const Icon(Icons.hourglass_empty_outlined, color: Colors.white60, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Independence Clock', style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: Routes.taskCenter,
+                child: Row(
+                  children: [
+                    const Icon(Icons.check_circle_outline, color: Colors.white60, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Task Center', style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: Routes.lifeProgress,
+                child: Row(
+                  children: [
+                    const Icon(Icons.show_chart, color: Colors.white60, size: 18),
+                    const SizedBox(width: 10),
+                    Text('Life Progress', style: GoogleFonts.inter(color: Colors.white70, fontSize: 14)),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildHeaderIndicator(String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 6,
-          height: 6,
-          decoration: const BoxDecoration(
-            color: AnchorTheme.accent,
-            shape: BoxShape.circle,
-          ),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: GoogleFonts.inter(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 1.0,
-            color: AnchorTheme.textSecondary,
-          ),
-        ),
-      ],
     );
   }
 }
@@ -1076,39 +1092,50 @@ class _IntentionCardState extends ConsumerState<_IntentionCard> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: const BoxDecoration(
-        color: Color(0xFF0E0E0E),
-        borderRadius: BorderRadius.all(Radius.circular(12)),
-        border: Border(
-          top: BorderSide(color: Color(0xFF252525), width: 1),
-          right: BorderSide(color: Color(0xFF252525), width: 1),
-          bottom: BorderSide(color: Color(0xFF252525), width: 1),
-          left: BorderSide(color: AnchorTheme.accent, width: 3),
-        ),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0E0E0E),
+        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        border: Border.all(color: const Color(0xFF252525), width: 1),
       ),
-      child: TextField(
-        controller: _ctrl,
-        focusNode: _focusNode,
-        onSubmitted: (_) => _save(),
-        style: GoogleFonts.inter(
-          fontSize: 14,
-          fontWeight: FontWeight.w500,
-          color: Colors.white,
+      clipBehavior: Clip.antiAlias,
+      child: IntrinsicHeight(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              width: 3,
+              color: AnchorTheme.accent,
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: TextField(
+                  controller: _ctrl,
+                  focusNode: _focusNode,
+                  onSubmitted: (_) => _save(),
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: "Set today's intention...",
+                    hintStyle: GoogleFonts.inter(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFF666666),
+                    ),
+                    border: InputBorder.none,
+                    contentPadding: EdgeInsets.zero,
+                    isDense: true,
+                  ),
+                  maxLines: 1,
+                  textInputAction: TextInputAction.done,
+                ),
+              ),
+            ),
+          ],
         ),
-        decoration: InputDecoration(
-          hintText: "Set today's intention...",
-          hintStyle: GoogleFonts.inter(
-            fontSize: 14,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFF666666),
-          ),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          isDense: true,
-        ),
-        maxLines: 1,
-        textInputAction: TextInputAction.done,
       ),
     );
   }

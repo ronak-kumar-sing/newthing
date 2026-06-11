@@ -10,6 +10,7 @@ import 'tables/screen_time_table.dart';
 import 'tables/chat_message_table.dart';
 import 'tables/whatsapp_digest_table.dart';
 import 'tables/whatsapp_group_table.dart';
+import 'tables/placement_table.dart';
 
 part 'database.g.dart';
 
@@ -24,12 +25,13 @@ part 'database.g.dart';
   ChatMessages,
   WhatsappDigests,
   WhatsappGroups,
+  Placements,
 ])
 class AnchorDatabase extends _$AnchorDatabase {
   AnchorDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -45,14 +47,23 @@ class AnchorDatabase extends _$AnchorDatabase {
             // v1 → v2: add geminiModel column to AppSettings
             await m.addColumn(appSettings, appSettings.geminiModel);
           }
+          if (from < 3) {
+            // v2 → v3: add Placements table
+            await m.createTable(placements);
+          }
         },
       );
+
 
   static QueryExecutor _openConnection() {
     return driftDatabase(
       name: 'anchor_db',
       native: const DriftNativeOptions(
         databaseDirectory: getApplicationSupportDirectory,
+      ),
+      web: DriftWebOptions(
+        sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+        driftWorker: Uri.parse('drift_worker.js'),
       ),
     );
   }

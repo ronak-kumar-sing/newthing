@@ -1,9 +1,13 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 /// WhatsApp connection status from the Baileys bridge.
 enum WAStatus { disconnected, qrPending, connected }
+
+/// Whether we are on a mobile platform (Android/iOS).
+bool get _isMobile => !kIsWeb && (Platform.isAndroid || Platform.isIOS);
 
 /// A WhatsApp group entry.
 class WAGroup {
@@ -255,5 +259,63 @@ class WhatsappBridgeApi {
       }
     }
     return null;
+  }
+
+  // ─── Mobile Deeplink Methods ─────────────────────────────────────────────
+
+  /// Whether this is a mobile platform (Node.js bridge unavailable).
+  bool get isMobilePlatform => _isMobile;
+
+  /// Open a WhatsApp chat with a specific phone number (mobile only).
+  /// [phone] should include country code without '+', e.g. '919876543210'.
+  Future<bool> launchWhatsAppChat(String phone, {String? message}) async {
+    try {
+      final encoded = message != null ? Uri.encodeComponent(message) : '';
+      final uri = Uri.parse(
+        'https://wa.me/$phone${encoded.isNotEmpty ? '?text=$encoded' : ''}',
+      );
+      if (await canLaunchUrl(uri)) {
+        return launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      debugPrint('[WA Deeplink] Cannot launch WhatsApp URL');
+      return false;
+    } catch (e) {
+      debugPrint('[WA Deeplink] launchWhatsAppChat error: $e');
+      return false;
+    }
+  }
+
+  /// Open a WhatsApp group invite link (mobile only).
+  /// [groupLink] should be a full URL like 'https://chat.whatsapp.com/XXXXX'.
+  Future<bool> launchWhatsAppGroup(String groupLink) async {
+    try {
+      final uri = Uri.parse(groupLink);
+      if (await canLaunchUrl(uri)) {
+        return launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      debugPrint('[WA Deeplink] Cannot launch group link');
+      return false;
+    } catch (e) {
+      debugPrint('[WA Deeplink] launchWhatsAppGroup error: $e');
+      return false;
+    }
+  }
+
+  /// Open WhatsApp app directly (no specific chat).
+  Future<bool> launchWhatsApp() async {
+    try {
+      final uri = Uri.parse('whatsapp://');
+      if (await canLaunchUrl(uri)) {
+        return launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      // Fallback to web
+      return launchUrl(
+        Uri.parse('https://web.whatsapp.com'),
+        mode: LaunchMode.externalApplication,
+      );
+    } catch (e) {
+      debugPrint('[WA Deeplink] launchWhatsApp error: $e');
+      return false;
+    }
   }
 }

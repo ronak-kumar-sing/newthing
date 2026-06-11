@@ -31,7 +31,7 @@ class SettingsDao extends DatabaseAccessor<AnchorDatabase> with _$SettingsDaoMix
       whatsappDigestEnabled: const Value(false),
       geminiModel: const Value('gemini-2.0-flash'),
     );
-    await into(appSettings).insert(defaults);
+    await into(appSettings).insert(defaults, mode: InsertMode.insertOrIgnore);
     return (select(appSettings)
       ..where((s) => s.id.equals(_settingsId)))
         .getSingle();

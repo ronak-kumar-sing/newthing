@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -9,6 +10,10 @@ import '../../data/local/database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../features/streak/models/streak_day.dart';
+import '../../features/streak/models/streak_widget_data.dart';
+import '../../features/streak/widgets/streak_clock_screen.dart';
+import '../../features/streak/widgets/wallpaper_preview.dart';
 
 /// Focus streak count provider.
 final journalStreakProvider = FutureProvider<int>((ref) async {
@@ -35,6 +40,38 @@ final monthlyCheckInsProvider = FutureProvider.family<List<DateTime>, DateTime>(
 
   final entries = await dao.getEntriesForRange(startOfMonth, endOfMonth);
   return entries.map((e) => e.date).toList();
+});
+
+/// Checked-in dates for the last 365 days mapped to StreakDay.
+final streakDaysProvider = FutureProvider<List<StreakDay>>((ref) async {
+  final dao = ref.watch(journalDaoProvider);
+  final now = DateTime.now();
+  final startDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 365));
+  final endDate = DateTime(now.year, now.month, now.day);
+
+  final entries = await dao.getEntriesForRange(startDate, endDate);
+  
+  final entryMap = {
+    for (var e in entries)
+      DateTime(e.date.year, e.date.month, e.date.day): e
+  };
+
+  final List<StreakDay> list = [];
+  for (int i = 0; i <= 365; i++) {
+    final date = startDate.add(Duration(days: i));
+    final dateKey = DateTime(date.year, date.month, date.day);
+    final entry = entryMap[dateKey];
+    final isCompleted = entry != null && entry.focusRating != null && entry.focusRating! >= 3;
+    final double? intensity = entry?.focusRating != null 
+        ? (entry!.focusRating! / 5.0).clamp(0.0, 1.0) 
+        : null;
+    list.add(StreakDay(
+      date: date,
+      isCompleted: isCompleted,
+      intensity: intensity,
+    ));
+  }
+  return list;
 });
 
 class IndependenceClockScreen extends ConsumerStatefulWidget {
@@ -132,10 +169,10 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                       ),
                       const SizedBox(height: 24.0),
 
-                      // Monthly Dot Calendar
+                      // Streak Dot Grid Matrix
                       FadeSlideIn(
                         delaySeconds: 0.2,
-                        child: _buildMonthlyCalendarCard(),
+                        child: _buildStreakClockCard(),
                       ),
                     ],
                   ),
@@ -213,6 +250,76 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                         color: AnchorTheme.textSecondary,
                       ),
                     ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  final streakDaysAsync = ref.read(streakDaysProvider);
+                  final streakData = streakDaysAsync.valueOrNull ?? [];
+                  final settings = ref.read(settingsProvider).valueOrNull;
+                  final label = settings?.independenceLabel ?? 'Focus Goals';
+                  
+                  int currentStreak = 0;
+                  final today = DateTime.now();
+                  final todayKey = DateTime(today.year, today.month, today.day);
+                  final dateMap = {
+                    for (var d in streakData)
+                      DateTime(d.date.year, d.date.month, d.date.day): d
+                  };
+                  for (int i = 0; i <= 365; i++) {
+                    final checkDate = todayKey.subtract(Duration(days: i));
+                    final day = dateMap[checkDate];
+                    if (day != null && day.isCompleted) {
+                      currentStreak++;
+                    } else if (i == 0) {
+                      continue;
+                    } else {
+                      break;
+                    }
+                  }
+                  final completedDays = streakData.where((d) => d.isCompleted).length;
+                  const targetDays = 365;
+                  final daysLeft = math.max(0, targetDays - completedDays);
+                  final percentage = ((completedDays / targetDays) * 100.0).clamp(0.0, 100.0);
+                  final List<bool> last7 = [];
+                  for (int i = 6; i >= 0; i--) {
+                    final checkDate = todayKey.subtract(Duration(days: i));
+                    final day = dateMap[checkDate];
+                    last7.add(day?.isCompleted ?? false);
+                  }
+
+                  final data = StreakWidgetData(
+                    habitName: label,
+                    currentStreak: currentStreak,
+                    targetDays: targetDays,
+                    daysLeft: daysLeft,
+                    percentage: percentage,
+                    last7Days: last7,
+                    accentColorHex: '#C6F52C',
+                  );
+
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => WallpaperPreviewScreen(streakData: data),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.wallpaper_rounded,
+                    size: 16,
+                    color: Colors.white,
                   ),
                 ),
               ),
@@ -481,216 +588,40 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     );
   }
 
-  Widget _buildMonthlyCalendarCard() {
-    final monthStr = DateFormat('MMMM yyyy').format(_selectedMonth);
-    final monthlyCheckInsAsync = ref.watch(monthlyCheckInsProvider(_selectedMonth));
-
-    final now = DateTime.now();
-    final todayDate = DateTime(now.year, now.month, now.day);
-
-    final firstWeekday = DateTime(_selectedMonth.year, _selectedMonth.month, 1).weekday;
-    final pads = firstWeekday - 1;
-    final daysInMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0).day;
-    final totalItems = pads + daysInMonth;
+  Widget _buildStreakClockCard() {
+    final streakDaysAsync = ref.watch(streakDaysProvider);
+    final settingsAsync = ref.watch(settingsProvider);
+    final settings = settingsAsync.valueOrNull;
+    final label = settings?.independenceLabel ?? 'Focus Goals';
 
     return Container(
+      width: double.infinity,
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AnchorTheme.cardBg,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: AnchorTheme.cardBorder, width: 1),
       ),
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                monthStr.toUpperCase(),
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2.0,
-                  color: AnchorTheme.textMuted,
-                ),
-              ),
-              Row(
-                children: [
-                  _buildChevronButton(Icons.chevron_left_rounded, () {
-                    setState(() {
-                      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1, 1);
-                    });
-                  }),
-                  const SizedBox(width: 8),
-                  _buildChevronButton(Icons.chevron_right_rounded, () {
-                    setState(() {
-                      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 1);
-                    });
-                  }),
-                ],
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: ['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((day) {
-              return Expanded(
-                child: Text(
-                  day,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AnchorTheme.textMuted,
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-          monthlyCheckInsAsync.when(
-            data: (checkIns) {
-              final checkInDates = checkIns.map((d) => DateTime(d.year, d.month, d.day)).toSet();
-
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                clipBehavior: Clip.none,
-                itemCount: totalItems,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 7,
-                  mainAxisSpacing: 16,
-                  crossAxisSpacing: 8,
-                ),
-                itemBuilder: (context, index) {
-                  if (index < pads) {
-                    return const SizedBox.shrink();
-                  }
-
-                  final dayNum = index - pads + 1;
-                  final cellDate = DateTime(_selectedMonth.year, _selectedMonth.month, dayNum);
-                  final isTodayCell = cellDate.year == todayDate.year &&
-                      cellDate.month == todayDate.month &&
-                      cellDate.day == todayDate.day;
-
-                  final hasCheckIn = checkInDates.contains(cellDate);
-
-                  Widget dotWidget;
-
-                  if (isTodayCell) {
-                    dotWidget = Stack(
-                      alignment: Alignment.center,
-                      clipBehavior: Clip.none,
-                      children: [
-                        // Outer glowing lime ring
-                        Container(
-                          width: 20,
-                          height: 20,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color: AnchorTheme.accent,
-                              width: 1.5,
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: AnchorTheme.accent.withOpacity(0.85),
-                                blurRadius: 10,
-                                spreadRadius: 1.5,
-                              ),
-                            ],
-                          ),
-                        ).animate(
-                          onPlay: (controller) => controller.repeat(reverse: true),
-                        ).scale(
-                          begin: const Offset(0.9, 0.9),
-                          end: const Offset(1.1, 1.1),
-                          duration: 1000.ms,
-                          curve: Curves.easeInOut,
-                        ),
-                        // Inner white dot
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            color: Colors.white,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                      ],
-                    );
-                  } else if (hasCheckIn) {
-                    dotWidget = Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        color: AnchorTheme.accent.withOpacity(0.8),
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AnchorTheme.accent.withOpacity(0.3),
-                            blurRadius: 4,
-                            spreadRadius: 0.5,
-                          ),
-                        ],
-                      ),
-                    );
-                  } else {
-                    dotWidget = Container(
-                      width: 10,
-                      height: 10,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.15),
-                          width: 1.2,
-                        ),
-                      ),
-                    );
-                  }
-
-                  return Center(
-                    child: dotWidget,
-                  );
-                },
-              );
-            },
-            loading: () => const Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
-                ),
-              ),
+      child: streakDaysAsync.when(
+        data: (streakData) {
+          return StreakClockScreen(
+            habitName: label,
+            streakData: streakData,
+            targetDays: 365,
+            accentColor: AnchorTheme.accent,
+          );
+        },
+        loading: () => const Center(
+          child: SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
             ),
-            error: (e, s) => const SizedBox(),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildChevronButton(IconData icon, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 28,
-        height: 28,
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.05),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: Colors.white.withOpacity(0.1),
-            width: 1,
           ),
         ),
-        child: Icon(
-          icon,
-          size: 14,
-          color: Colors.white,
-        ),
+        error: (e, s) => const SizedBox(),
       ),
     );
   }

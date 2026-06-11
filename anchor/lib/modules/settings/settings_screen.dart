@@ -189,11 +189,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     ref.read(geminiApiProvider)
       ..setApiKey(geminiKeyController.text)
       ..setModel(_selectedModel);
-    final ok = await ref.read(geminiApiProvider).testConnection();
+    final (ok, errorMsg) = await ref.read(geminiApiProvider).testConnectionWithDetails();
     setState(() {
       _geminiStatus = ok;
       _testingGemini = false;
     });
+    if (!ok && errorMsg != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF2A1A1A),
+          duration: const Duration(seconds: 4),
+          content: Text(
+            'Gemini: $errorMsg',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _loadFromEnvFile() async {

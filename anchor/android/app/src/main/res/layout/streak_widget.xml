@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:background="@drawable/widget_background">
+
+    <!-- Habit Name -->
+    <TextView
+        android:id="@+id/widget_habit_name"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="FOCUS STREAK"
+        android:textColor="#8E937A"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:letterSpacing="0.15" />
+
+    <!-- Streak Number & "DAYS" label -->
+    <LinearLayout
+        android:id="@+id/streak_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/widget_habit_name"
+        android:layout_marginTop="4dp"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_streak_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0"
+            android:textColor="#FFFFFF"
+            android:textSize="36sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="4dp"
+            android:text="DAYS"
+            android:textColor="#C6F52C"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Days left and percentage -->
+    <LinearLayout
+        android:id="@+id/details_layout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_below="@id/streak_layout"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_days_left"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="365d left"
+            android:textColor="#C6F52C"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text=" · "
+            android:textColor="#8E937A"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/widget_progress_percent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="0%"
+            android:textColor="#E5E2E1"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- 7-day mini matrix -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_marginBottom="4dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView android:id="@+id/dot_1" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:layout_marginRight="4dp" android:src="@drawable/widget_dot_inactive" />
+        <ImageView android:id="@+id/dot_2" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:layout_marginRight="4dp" android:src="@drawable/widget_dot_inactive" />
+        <ImageView android:id="@+id/dot_3" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:layout_marginRight="4dp" android:src="@drawable/widget_dot_inactive" />
+        <ImageView android:id="@+id/dot_4" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:layout_marginRight="4dp" android:src="@drawable/widget_dot_inactive" />
+        <ImageView android:id="@+id/dot_5" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:layout_marginRight="4dp" android:src="@drawable/widget_dot_inactive" />
+        <ImageView android:id="@+id/dot_6" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:layout_marginRight="4dp" android:src="@drawable/widget_dot_inactive" />
+        <ImageView android:id="@+id/dot_7" android:layout_width="0dp" android:layout_height="12dp" android:layout_weight="1" android:src="@drawable/widget_dot_inactive" />
+    </LinearLayout>
+</RelativeLayout>
