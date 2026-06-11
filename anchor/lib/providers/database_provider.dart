@@ -59,6 +59,18 @@ void _seedDemoData(AnchorDatabase db) async {
         createdAt: DateTime.now(),
       ));
 
+      final gameSessionId = 'dim_game_sessions';
+      await db.into(db.progressDimensions).insert(ProgressDimension(
+        id: gameSessionId,
+        name: 'Game Sessions',
+        weeklyTarget: 7.0,
+        unit: 'hrs',
+        isAutomatic: true,
+        colorHex: '#FF5252',
+        sortOrder: 3,
+        createdAt: DateTime.now(),
+      ));
+
       // Seed progress values for the last 14 days
       final now = DateTime.now();
       for (int i = 0; i < 14; i++) {

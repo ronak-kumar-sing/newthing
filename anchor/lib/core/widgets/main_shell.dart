@@ -30,10 +30,10 @@ class _FloatingNav extends StatelessWidget {
 
   static const _items = [
     _NavItem(icon: Icons.wb_sunny_outlined,         label: 'Brief',    route: Routes.morningBrief),
-    _NavItem(icon: Icons.hourglass_empty_outlined,  label: 'Clock',    route: Routes.independenceClock),
-    _NavItem(icon: Icons.monitor_outlined,          label: 'Mirror',   route: Routes.screenMirror),
-    _NavItem(icon: Icons.check_circle_outline,      label: 'Tasks',    route: Routes.taskCenter),
-    _NavItem(icon: Icons.show_chart,                label: 'Progress', route: Routes.lifeProgress),
+    _NavItem(icon: Icons.chat_bubble_outline,       label: 'WhatsApp', route: Routes.whatsappDigest),
+    _NavItem(icon: Icons.bar_chart_rounded,         label: 'Progress', route: Routes.lifeProgress),
+    _NavItem(icon: Icons.timer_outlined,            label: 'Clock',    route: Routes.independenceClock),
+    _NavItem(icon: Icons.checklist_rounded,         label: 'Tasks',    route: Routes.taskCenter),
   ];
 
   @override

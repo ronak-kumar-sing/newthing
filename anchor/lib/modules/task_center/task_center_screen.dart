@@ -12,6 +12,7 @@ import '../../providers/api_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../data/remote/sync_service.dart';
+import '../../core/widgets/anchor_background.dart';
 
 // ─── Custom Bouncing Gesture Wrapper ───────────────────────────────────────
 class BouncingButton extends StatefulWidget {
@@ -89,7 +90,7 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
 
     return Scaffold(
       backgroundColor: AnchorTheme.backgroundDeep,
-      body: SafeArea(
+      body: AnchorBackground(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -383,6 +384,8 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const _AddTaskBottomSheet(),
     );
@@ -511,11 +514,40 @@ class _TaskList extends ConsumerWidget {
             itemCount: filteredTasks.length,
             itemBuilder: (context, index) {
               final task = filteredTasks[index];
-              return BouncingButton(
-                child: _TaskItem(
-                  task: task,
-                  onAction: () => onAction(task),
-                  isCompleted: isCompletedList,
+              return Dismissible(
+                key: ValueKey(task.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  alignment: Alignment.centerRight,
+                  decoration: BoxDecoration(
+                    color: AnchorTheme.statusRed.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(AnchorTheme.radiusCard),
+                    border: Border.all(color: AnchorTheme.statusRed.withOpacity(0.5), width: 1),
+                  ),
+                  child: const Icon(Icons.delete_outline, color: AnchorTheme.statusRed),
+                ),
+                onDismissed: (_) {
+                  ref.read(taskDaoProvider).deleteTask(task.id);
+                  ref.invalidate(activeTasksProvider);
+                },
+                child: BouncingButton(
+                  onTap: () {
+                    showModalBottomSheet(
+                      context: context,
+                      isScrollControlled: true,
+                      useSafeArea: true,
+                      useRootNavigator: true,
+                      backgroundColor: Colors.transparent,
+                      builder: (_) => _AddTaskBottomSheet(taskToEdit: task),
+                    );
+                  },
+                  child: _TaskItem(
+                    task: task,
+                    onAction: () => onAction(task),
+                    isCompleted: isCompletedList,
+                  ),
                 ),
               ).animate(delay: (index * 80).ms)
                .fadeIn(duration: 300.ms)
@@ -772,7 +804,8 @@ class _TagChip extends StatelessWidget {
 
 // ─── Add Task Bottom Sheet Modal ──────────────────────────────────────────
 class _AddTaskBottomSheet extends ConsumerStatefulWidget {
-  const _AddTaskBottomSheet();
+  final Task? taskToEdit;
+  const _AddTaskBottomSheet({this.taskToEdit});
 
   @override
   ConsumerState<_AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
@@ -787,10 +820,23 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
   bool _isSaving = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.taskToEdit != null) {
+      _titleController.text = widget.taskToEdit!.title;
+      _descriptionController.text = widget.taskToEdit!.description ?? '';
+      _dueDate = widget.taskToEdit!.dueDate;
+      _priority = widget.taskToEdit!.priority;
+      _label = widget.taskToEdit!.label ?? 'Academic';
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final safeBottom = MediaQuery.of(context).padding.bottom;
     // Extra padding so the floating nav bar doesn't cover the save button
-    final navPadding = bottomInset > 0 ? 0.0 : 80.0;
+    final navPadding = bottomInset > 0 ? 16.0 : (80.0 + safeBottom);
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF111111),
@@ -816,7 +862,7 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
             ),
             const SizedBox(height: 16),
             Text(
-              'New Task',
+              widget.taskToEdit == null ? 'New Task' : 'Edit Task',
               style: GoogleFonts.inter(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -834,6 +880,8 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: TextField(
                 controller: _titleController,
+                textInputAction: TextInputAction.next,
+                onSubmitted: (_) => FocusScope.of(context).nextFocus(),
                 style: GoogleFonts.inter(fontSize: 15, color: Colors.white),
                 decoration: InputDecoration(
                   hintText: 'Task Title',
@@ -1019,7 +1067,7 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
                     child: _isSaving
                         ? const CircularProgressIndicator(color: AnchorTheme.onAccent)
                         : Text(
-                            'Add Task',
+                            widget.taskToEdit == null ? 'Add Task' : 'Save Task',
                             style: GoogleFonts.inter(
                               fontSize: 16,
                               fontWeight: FontWeight.bold,
@@ -1043,7 +1091,7 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
       return;
     }
     setState(() => _isSaving = true);
-    final taskId = 'local_${DateTime.now().millisecondsSinceEpoch}';
+    final taskId = widget.taskToEdit?.id ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
     final task = TasksCompanion(
       id: Value(taskId),
       title: Value(title),

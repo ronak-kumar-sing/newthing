@@ -15,6 +15,7 @@ import '../../providers/task_provider.dart';
 import '../../providers/progress_provider.dart';
 import '../../providers/api_provider.dart';
 import '../../data/remote/weather_api.dart';
+import '../../core/widgets/anchor_background.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
@@ -106,7 +107,7 @@ class MorningBriefScreen extends ConsumerWidget {
 
     return Scaffold(
       backgroundColor: AnchorTheme.background,
-      body: SafeArea(
+      body: AnchorBackground(
         child: Column(
           children: [
             _buildHeader(context, name),

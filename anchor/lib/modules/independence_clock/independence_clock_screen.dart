@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' show Value;
+import 'package:go_router/go_router.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../data/local/database.dart';
@@ -11,9 +12,12 @@ import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../features/streak/models/streak_day.dart';
-import '../../features/streak/models/streak_widget_data.dart';
+import '../../features/streak/models/streak_day.dart';
 import '../../features/streak/widgets/streak_clock_screen.dart';
 import '../../features/streak/widgets/wallpaper_preview.dart';
+import '../../features/streak/models/streak_widget_data.dart';
+import '../../core/widgets/anchor_background.dart';
+import 'widgets/clock_widgets.dart';
 
 /// Focus streak count provider.
 final journalStreakProvider = FutureProvider<int>((ref) async {
@@ -110,9 +114,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
       ),
     );
     if (picked != null) {
-      await ref.read(settingsDaoProvider).updateSettings(
-            AppSettingsCompanion(independenceDate: Value(picked)),
-          );
+      await ref.read(settingsDaoProvider).updateTargetDate(picked);
       ref.invalidate(settingsProvider);
     }
   }
@@ -136,9 +138,8 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
-      body: _AtmosphericBackground(
-        child: SafeArea(
-          child: Column(
+      body: AnchorBackground(
+        child: Column(
             children: [
               // Sticky Top Bar Header
               _buildHeader(context, goalDate),
@@ -151,7 +152,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                       // Hero Countdown Card
                       FadeSlideIn(
                         delaySeconds: 0.05,
-                        child: _buildHeroCard(daysLeft, goalDate, label),
+                        child: _buildHeroCard(daysLeft, goalDate, label, progress),
                       ),
                       const SizedBox(height: 24.0),
 
@@ -181,7 +182,6 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
             ],
           ),
         ),
-      ),
     );
   }
 
@@ -323,6 +323,11 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                   ),
                 ),
               ),
+              const SizedBox(width: 8),
+              IconButton(
+                icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
+                onPressed: () => context.push('/settings'),
+              ),
             ],
           ),
         ],
@@ -330,7 +335,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     );
   }
 
-  Widget _buildHeroCard(int daysLeft, DateTime? goalDate, String label) {
+  Widget _buildHeroCard(int daysLeft, DateTime? goalDate, String label, double progress) {
     final startDate = goalDate != null
         ? goalDate.subtract(const Duration(days: 365))
         : DateTime.now();
@@ -340,7 +345,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(32),
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 20),
       decoration: BoxDecoration(
         color: AnchorTheme.cardBg,
         borderRadius: BorderRadius.circular(20),
@@ -348,16 +353,19 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
       ),
       child: Column(
         children: [
-          Text(
-            goalDate != null ? '$daysLeft' : '—',
-            style: GoogleFonts.sora(
-              fontSize: 80,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-              height: 1.0,
+          CountdownRing(
+            progress: progress,
+            child: SpinningNumber(
+              number: goalDate != null ? daysLeft : 0,
+              textStyle: GoogleFonts.sora(
+                fontSize: 80,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+                height: 1.0,
+              ),
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 24),
           Text(
             'DAYS REMAINING',
             style: GoogleFonts.inter(

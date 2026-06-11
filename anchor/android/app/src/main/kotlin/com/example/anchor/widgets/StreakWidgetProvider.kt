@@ -66,6 +66,19 @@ class StreakWidgetProvider : AppWidgetProvider() {
             }
         }
         
+        // Add click intent to open the app
+        val intent = android.content.Intent(context, com.example.anchor.MainActivity::class.java)
+        val pendingIntent = android.app.PendingIntent.getActivity(
+            context,
+            0,
+            intent,
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        val rootId = context.resources.getIdentifier("widget_root", "id", packageName)
+        if (rootId != 0) {
+            views.setOnClickPendingIntent(rootId, pendingIntent)
+        }
+        
         appWidgetManager.updateAppWidget(appWidgetId, views)
     }
 }

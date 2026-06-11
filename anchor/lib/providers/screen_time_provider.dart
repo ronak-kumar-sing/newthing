@@ -33,6 +33,8 @@ final syncUsageStatsProvider = FutureProvider<int>((ref) async {
   int syncedCount = 0;
   final db = ref.read(databaseProvider);
 
+  int gameTimeSeconds = 0;
+
   for (final stat in stats) {
     // Skip very short usage (< 1 minute)
     if (stat.totalMinutes < 1) continue;
@@ -46,6 +48,10 @@ final syncUsageStatsProvider = FutureProvider<int>((ref) async {
       category = getDefaultCategory(stat.packageName);
       // Save inferred category for next time
       await dao.setAppCategory(stat.packageName, category);
+    }
+
+    if (category == 'Game') {
+      gameTimeSeconds += stat.totalTimeInForegroundMs ~/ 1000;
     }
 
     // Create a session record
@@ -80,6 +86,11 @@ final syncUsageStatsProvider = FutureProvider<int>((ref) async {
       );
       syncedCount++;
     }
+  }
+
+  if (gameTimeSeconds > 0) {
+    final progressDao = ref.read(progressDaoProvider);
+    await progressDao.recordValue('dim_game_sessions', todayStart, gameTimeSeconds / 3600.0);
   }
 
   return syncedCount;

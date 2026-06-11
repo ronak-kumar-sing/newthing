@@ -79,8 +79,9 @@ class _LogTodaySheetState extends ConsumerState<LogTodaySheet> {
         24,
         24 + MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Drag handle
@@ -229,6 +230,7 @@ class _LogTodaySheetState extends ConsumerState<LogTodaySheet> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

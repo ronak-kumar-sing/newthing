@@ -153,6 +153,8 @@ class LifeProgressScreen extends ConsumerWidget {
                       showModalBottomSheet(
                         context: context,
                         isScrollControlled: true,
+                        useSafeArea: true,
+                        useRootNavigator: true,
                         backgroundColor: Colors.transparent,
                         builder: (_) => LogTodaySheet(progress: item),
                       );
@@ -235,18 +237,28 @@ class LifeProgressScreen extends ConsumerWidget {
             color: Colors.white,
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1A1A1A),
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Row(
-            children: [
-              _buildTogglePill(ref, 'Week', period == Period.week, Period.week),
-              _buildTogglePill(ref, 'Month', period == Period.month, Period.month),
-            ],
-          ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1A1A1A),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Row(
+                children: [
+                  _buildTogglePill(ref, 'Week', period == Period.week, Period.week),
+                  _buildTogglePill(ref, 'Month', period == Period.month, Period.month),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton(
+              icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
+              onPressed: () => context.push('/settings'),
+            ),
+          ],
         ),
       ],
     );
@@ -482,14 +494,36 @@ class LifeProgressScreen extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  selectedProgress.dimensionName,
-                  style: GoogleFonts.plusJakartaSans(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white.withOpacity(0.80),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: progresses.map((p) {
+                        final isSelected = p.dimensionId == selectedId;
+                        return GestureDetector(
+                          onTap: () => ref.read(selectedDimensionIdProvider.notifier).state = p.dimensionId,
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSelected ? const Color(0xFFC6F52C) : Colors.white.withOpacity(0.05),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Text(
+                              p.dimensionName,
+                              style: GoogleFonts.plusJakartaSans(
+                                fontSize: 12,
+                                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                                color: isSelected ? Colors.black : Colors.white.withOpacity(0.7),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -770,6 +804,8 @@ class LifeProgressScreen extends ConsumerWidget {
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
+                          useSafeArea: true,
+                          useRootNavigator: true,
                           backgroundColor: Colors.transparent,
                           builder: (_) => const WorkoutLogSheet(),
                         );
@@ -935,7 +971,7 @@ class LifeProgressScreen extends ConsumerWidget {
           Row(
             children: [
               Text(
-                'Tasks',
+                data.aiSummary != null ? 'AI Coach Reflection' : 'Tasks',
                 style: GoogleFonts.plusJakartaSans(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -943,34 +979,52 @@ class LifeProgressScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              Icon(
-                data.overdueTasksCount > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline,
-                size: 16,
-                color: data.overdueTasksCount > 0 ? const Color(0xFFFF9800) : const Color(0xFFC6F52C),
-              ),
+              if (data.aiSummary == null)
+                Icon(
+                  data.overdueTasksCount > 0 ? Icons.warning_amber_rounded : Icons.check_circle_outline,
+                  size: 16,
+                  color: data.overdueTasksCount > 0 ? const Color(0xFFFF9800) : const Color(0xFFC6F52C),
+                )
+              else
+                Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: const Color(0xFFB088F9),
+                ),
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            data.overdueTasksCount > 0
-                ? '${data.overdueTasksCount} overdue'
-                : 'All clear',
-            style: GoogleFonts.spaceGrotesk(
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
+          if (data.aiSummary != null)
+            Text(
+              data.aiSummary!,
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 14,
+                height: 1.5,
+                color: Colors.white.withOpacity(0.85),
+              ),
+            )
+          else ...[
+            Text(
+              data.overdueTasksCount > 0
+                  ? '${data.overdueTasksCount} overdue'
+                  : 'All clear',
+              style: GoogleFonts.spaceGrotesk(
+                fontSize: 20,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
             ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            data.overdueTasksCount > 0
-                ? 'Prioritize these next'
-                : 'No overdue tasks — keep it up!',
-            style: GoogleFonts.plusJakartaSans(
-              fontSize: 12,
-              color: Colors.white.withOpacity(0.45),
+            const SizedBox(height: 3),
+            Text(
+              data.overdueTasksCount > 0
+                  ? 'Prioritize these next'
+                  : 'No overdue tasks — keep it up!',
+              style: GoogleFonts.plusJakartaSans(
+                fontSize: 12,
+                color: Colors.white.withOpacity(0.45),
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -1022,6 +1076,8 @@ class LifeProgressScreen extends ConsumerWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => const AddDimensionBottomSheet(),
     );
@@ -1060,8 +1116,9 @@ class _AddDimensionBottomSheetState extends ConsumerState<AddDimensionBottomShee
         ),
       ),
       padding: EdgeInsets.fromLTRB(28, 20, 28, 28 + MediaQuery.of(context).viewInsets.bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
@@ -1179,6 +1236,7 @@ class _AddDimensionBottomSheetState extends ConsumerState<AddDimensionBottomShee
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -1193,6 +1251,8 @@ class _AddDimensionBottomSheetState extends ConsumerState<AddDimensionBottomShee
       child: TextField(
         controller: controller,
         keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+        textInputAction: TextInputAction.next,
+        onSubmitted: (_) => FocusScope.of(context).nextFocus(),
         style: GoogleFonts.plusJakartaSans(fontSize: 14, color: Colors.white),
         decoration: InputDecoration(
           hintText: label,

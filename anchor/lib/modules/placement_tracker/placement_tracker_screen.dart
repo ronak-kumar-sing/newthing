@@ -660,6 +660,8 @@ class _PlacementTrackerScreenState extends ConsumerState<PlacementTrackerScreen>
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => _AddApplicationBottomSheet(
         onAdd: (app) {
@@ -673,6 +675,9 @@ class _PlacementTrackerScreenState extends ConsumerState<PlacementTrackerScreen>
     final currentFilter = ref.read(placementFilterProvider);
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
@@ -751,6 +756,9 @@ class _PlacementTrackerScreenState extends ConsumerState<PlacementTrackerScreen>
   void _showActionsSheet(BuildContext context, WidgetRef ref, PlacementApplication app) {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       builder: (context) => Container(
         padding: const EdgeInsets.all(24),
@@ -1285,6 +1293,8 @@ class _AddApplicationBottomSheetState extends State<_AddApplicationBottomSheet> 
           child: TextField(
             controller: controller,
             maxLines: maxLines,
+            textInputAction: maxLines == 1 ? TextInputAction.next : TextInputAction.newline,
+            onSubmitted: maxLines == 1 ? (_) => FocusScope.of(context).nextFocus() : null,
             style: GoogleFonts.inter(fontSize: 14, color: Colors.white),
             decoration: InputDecoration(
               hintText: hint,

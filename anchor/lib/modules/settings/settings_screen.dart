@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/glass_card.dart';
+import '../../core/widgets/anchor_background.dart';
 import '../../data/local/database.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/database_provider.dart';
@@ -303,7 +304,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     return Scaffold(
       backgroundColor: AnchorTheme.backgroundDeep,
-      body: SafeArea(
+      body: AnchorBackground(
         child: Column(
           children: [
             // ── Top Bar ──

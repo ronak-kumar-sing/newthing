@@ -65,7 +65,7 @@ final widgetSyncProvider = Provider<void>((ref) {
 
       WidgetSyncService.syncStreakData(widgetData);
     }
-  });
+  }, fireImmediately: true);
 
   // Listen to activeTasksProvider for task lists
   ref.listen<AsyncValue<List<Task>>>(activeTasksProvider, (prev, next) {
@@ -79,7 +79,7 @@ final widgetSyncProvider = Provider<void>((ref) {
       )).toList();
       WidgetSyncService.syncTaskData(taskList);
     }
-  });
+  }, fireImmediately: true);
 });
 
 class WidgetSyncService {

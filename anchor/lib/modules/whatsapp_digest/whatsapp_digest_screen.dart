@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../data/local/database.dart';
@@ -93,6 +94,11 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                               : const SizedBox.shrink(),
                           loading: () => const SizedBox.shrink(),
                           error: (_, __) => const SizedBox.shrink(),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
+                          onPressed: () => context.push('/settings'),
                         ),
                       ],
                     ),

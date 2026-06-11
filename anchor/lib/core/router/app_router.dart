@@ -28,12 +28,17 @@ class Routes {
 /// GoRouter configuration for Anchor.
 /// Uses a shell route with the main navigation sidebar.
 final GoRouter appRouter = GoRouter(
-  initialLocation: Routes.morningBrief,
+  initialLocation: Routes.lifeProgress,
   debugLogDiagnostics: true,
   routes: [
     ShellRoute(
       builder: (context, state, child) => MainShell(child: child),
       routes: [
+        GoRoute(
+          path: Routes.lifeProgress,
+          name: 'lifeProgress',
+          pageBuilder: (context, state) => _buildPage(state, const LifeProgressScreen()),
+        ),
         GoRoute(
           path: Routes.morningBrief,
           name: 'morningBrief',
@@ -54,11 +59,7 @@ final GoRouter appRouter = GoRouter(
           name: 'taskCenter',
           pageBuilder: (context, state) => _buildPage(state, const TaskCenterScreen()),
         ),
-        GoRoute(
-          path: Routes.lifeProgress,
-          name: 'lifeProgress',
-          pageBuilder: (context, state) => _buildPage(state, const LifeProgressScreen()),
-        ),
+
         GoRoute(
           path: Routes.whatsappDigest,
           name: 'whatsappDigest',

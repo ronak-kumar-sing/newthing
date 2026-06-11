@@ -1,9 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/local/database.dart';
 import '../models/progress_model.dart';
 import '../models/life_progress_point.dart';
 import 'database_provider.dart';
+import 'api_provider.dart' as api_provider;
 
 /// Currently selected dimension ID for charts/details.
 final selectedDimensionIdProvider = StateProvider<String?>((ref) => null);
@@ -150,6 +152,7 @@ class RealInsightData {
   final String gymFocusStatus;
   final String gymFocusSub;
   final int overdueTasksCount;
+  final String? aiSummary;
 
   const RealInsightData({
     required this.studyTrend,
@@ -158,6 +161,7 @@ class RealInsightData {
     required this.gymFocusStatus,
     required this.gymFocusSub,
     required this.overdueTasksCount,
+    this.aiSummary,
   });
 }
 
@@ -206,6 +210,23 @@ final realInsightProvider = FutureProvider<RealInsightData>((ref) async {
   // Overdue tasks
   final overdueCount = await taskDao.getOverdueTasks().then((list) => list.length);
 
+  // Gemini Integration
+  String? aiSummary;
+  try {
+    final gemini = ref.read(api_provider.geminiApiProvider);
+    if (gemini.isConfigured) {
+      aiSummary = await gemini.generateWeeklyReflection(weekData: {
+        'studyHoursThisWeek': studyThisWeek,
+        'studyDirection': studyDirection,
+        'gymStatus': gymStatus,
+        'gymSub': gymSub,
+        'overdueTasks': overdueCount,
+      });
+    }
+  } catch (e) {
+    debugPrint('Failed to generate Gemini insight: $e');
+  }
+
   return RealInsightData(
     studyTrend: 'Study Trend',
     studyTrendDirection: studyDirection,
@@ -213,6 +234,7 @@ final realInsightProvider = FutureProvider<RealInsightData>((ref) async {
     gymFocusStatus: gymStatus,
     gymFocusSub: gymSub,
     overdueTasksCount: overdueCount,
+    aiSummary: aiSummary,
   );
 });
 

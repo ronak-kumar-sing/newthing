@@ -62,6 +62,13 @@ class TasksRemoteViewsFactory(private val context: Context) : RemoteViewsService
                 views.setImageViewResource(statusIconId, drawableId)
             }
         }
+        
+        // Make the item clickable by adding a fill-in intent
+        val fillInIntent = android.content.Intent()
+        val rootId = context.resources.getIdentifier("task_item_root", "id", packageName)
+        if (rootId != 0) {
+            views.setOnClickFillInIntent(rootId, fillInIntent)
+        }
 
         return views
     }

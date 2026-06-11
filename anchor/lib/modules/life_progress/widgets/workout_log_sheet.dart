@@ -116,8 +116,9 @@ class _WorkoutLogSheetState extends ConsumerState<WorkoutLogSheet> {
         24,
         24 + MediaQuery.of(context).viewInsets.bottom,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Drag handle
@@ -303,6 +304,7 @@ class _WorkoutLogSheetState extends ConsumerState<WorkoutLogSheet> {
             ),
           ),
         ],
+      ),
       ),
     );
   }

@@ -23,6 +23,14 @@
 # Keep permission handler
 -keep class com.baseflow.** { *; }
 
+# Keep MainActivity and widgets
+-keep class com.example.anchor.MainActivity { *; }
+-keep class com.example.anchor.widgets.** { *; }
+
+# Keep WorkManager
+-keep class androidx.work.** { *; }
+-keep class be.wils.gerrit.flutter_workmanager.** { *; }
+
 # Don't warn about missing Play Core classes (deferred components not used)
 -dontwarn com.google.android.play.core.splitcompat.SplitCompatApplication
 -dontwarn com.google.android.play.core.splitinstall.SplitInstallException

@@ -312,6 +312,9 @@ String getDefaultCategory(String packageName) {
     'com.soundcloud.android',
     'com.shazam.android',
     'com.audible.application',
+  ];
+
+  final games = [
     'com.roblox.client',
     'com.supercell.clashofclans',
     'com.supercell.brawlstars',
@@ -325,10 +328,14 @@ String getDefaultCategory(String packageName) {
     'com.dts.freefiremax',
     'com.pubg.imobile',
     'com.mojang.minecraftpe',
+    'com.tencent.ig', // PUBG Mobile
   ];
 
   for (final prefix in productive) {
     if (packageName.startsWith(prefix)) return 'productive';
+  }
+  for (final prefix in games) {
+    if (packageName.startsWith(prefix)) return 'Game';
   }
   for (final prefix in distracted) {
     if (packageName.startsWith(prefix)) return 'distracted';
