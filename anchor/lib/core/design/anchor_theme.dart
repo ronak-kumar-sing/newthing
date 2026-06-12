@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-
+import 'package:google_fonts/google_fonts.dart';
 /// Anchor design tokens — exactly matching Stitch project 6593935091737035770
 /// Theme: "Anchor High-Performance" — Minimalist-Brutalism
 /// Total black OLED base, lime accent, Inter typography
@@ -75,4 +75,14 @@ class AnchorTheme {
   static const double radiusBtn    = 999;  // pill buttons
   static const double radiusTag    = 6;    // status pills
   static const double radiusInput  = 12;   // input fields
+
+  // ─── Typography Helpers ───
+  static TextStyle display(double size, {Color? color, FontWeight? weight}) => 
+    GoogleFonts.inter(fontSize: size, color: color ?? Colors.white, fontWeight: weight ?? FontWeight.w700);
+      
+  static TextStyle body(double size, {Color? color, FontWeight? weight}) => 
+    GoogleFonts.inter(fontSize: size, color: color ?? textPrimary, fontWeight: weight ?? FontWeight.w400);
+
+  static TextStyle label(double size, {Color? color, FontWeight? weight}) => 
+    GoogleFonts.inter(fontSize: size, color: color ?? textSecondary, fontWeight: weight ?? FontWeight.w600, letterSpacing: 0.5);
 }

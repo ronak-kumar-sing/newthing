@@ -3029,6 +3029,18 @@ class $AppSettingsTable extends AppSettings
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _whatsappBridgeUrlMeta = const VerificationMeta(
+    'whatsappBridgeUrl',
+  );
+  @override
+  late final GeneratedColumn<String> whatsappBridgeUrl =
+      GeneratedColumn<String>(
+        'whatsapp_bridge_url',
+        aliasedName,
+        true,
+        type: DriftSqlType.string,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _geminiModelMeta = const VerificationMeta(
     'geminiModel',
   );
@@ -3059,6 +3071,7 @@ class $AppSettingsTable extends AppSettings
     launchOnStartup,
     whatsappDigestEnabled,
     lastDigestAt,
+    whatsappBridgeUrl,
     geminiModel,
   ];
   @override
@@ -3204,6 +3217,15 @@ class $AppSettingsTable extends AppSettings
         ),
       );
     }
+    if (data.containsKey('whatsapp_bridge_url')) {
+      context.handle(
+        _whatsappBridgeUrlMeta,
+        whatsappBridgeUrl.isAcceptableOrUnknown(
+          data['whatsapp_bridge_url']!,
+          _whatsappBridgeUrlMeta,
+        ),
+      );
+    }
     if (data.containsKey('gemini_model')) {
       context.handle(
         _geminiModelMeta,
@@ -3286,6 +3308,10 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_digest_at'],
       ),
+      whatsappBridgeUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}whatsapp_bridge_url'],
+      ),
       geminiModel: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}gemini_model'],
@@ -3348,6 +3374,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   /// Last digest generation timestamp.
   final DateTime? lastDigestAt;
 
+  /// Remote URL for WhatsApp Bridge (useful for mobile).
+  final String? whatsappBridgeUrl;
+
   /// Selected Gemini model for AI features.
   final String geminiModel;
   const AppSetting({
@@ -3367,6 +3396,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     required this.launchOnStartup,
     required this.whatsappDigestEnabled,
     this.lastDigestAt,
+    this.whatsappBridgeUrl,
     required this.geminiModel,
   });
   @override
@@ -3405,6 +3435,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     map['whatsapp_digest_enabled'] = Variable<bool>(whatsappDigestEnabled);
     if (!nullToAbsent || lastDigestAt != null) {
       map['last_digest_at'] = Variable<DateTime>(lastDigestAt);
+    }
+    if (!nullToAbsent || whatsappBridgeUrl != null) {
+      map['whatsapp_bridge_url'] = Variable<String>(whatsappBridgeUrl);
     }
     map['gemini_model'] = Variable<String>(geminiModel);
     return map;
@@ -3446,6 +3479,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       lastDigestAt: lastDigestAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastDigestAt),
+      whatsappBridgeUrl: whatsappBridgeUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(whatsappBridgeUrl),
       geminiModel: Value(geminiModel),
     );
   }
@@ -3484,6 +3520,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
         json['whatsappDigestEnabled'],
       ),
       lastDigestAt: serializer.fromJson<DateTime?>(json['lastDigestAt']),
+      whatsappBridgeUrl: serializer.fromJson<String?>(
+        json['whatsappBridgeUrl'],
+      ),
       geminiModel: serializer.fromJson<String>(json['geminiModel']),
     );
   }
@@ -3509,6 +3548,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'launchOnStartup': serializer.toJson<bool>(launchOnStartup),
       'whatsappDigestEnabled': serializer.toJson<bool>(whatsappDigestEnabled),
       'lastDigestAt': serializer.toJson<DateTime?>(lastDigestAt),
+      'whatsappBridgeUrl': serializer.toJson<String?>(whatsappBridgeUrl),
       'geminiModel': serializer.toJson<String>(geminiModel),
     };
   }
@@ -3530,6 +3570,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     bool? launchOnStartup,
     bool? whatsappDigestEnabled,
     Value<DateTime?> lastDigestAt = const Value.absent(),
+    Value<String?> whatsappBridgeUrl = const Value.absent(),
     String? geminiModel,
   }) => AppSetting(
     id: id ?? this.id,
@@ -3555,6 +3596,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     launchOnStartup: launchOnStartup ?? this.launchOnStartup,
     whatsappDigestEnabled: whatsappDigestEnabled ?? this.whatsappDigestEnabled,
     lastDigestAt: lastDigestAt.present ? lastDigestAt.value : this.lastDigestAt,
+    whatsappBridgeUrl: whatsappBridgeUrl.present
+        ? whatsappBridgeUrl.value
+        : this.whatsappBridgeUrl,
     geminiModel: geminiModel ?? this.geminiModel,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
@@ -3603,6 +3647,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       lastDigestAt: data.lastDigestAt.present
           ? data.lastDigestAt.value
           : this.lastDigestAt,
+      whatsappBridgeUrl: data.whatsappBridgeUrl.present
+          ? data.whatsappBridgeUrl.value
+          : this.whatsappBridgeUrl,
       geminiModel: data.geminiModel.present
           ? data.geminiModel.value
           : this.geminiModel,
@@ -3628,6 +3675,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('launchOnStartup: $launchOnStartup, ')
           ..write('whatsappDigestEnabled: $whatsappDigestEnabled, ')
           ..write('lastDigestAt: $lastDigestAt, ')
+          ..write('whatsappBridgeUrl: $whatsappBridgeUrl, ')
           ..write('geminiModel: $geminiModel')
           ..write(')'))
         .toString();
@@ -3651,6 +3699,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     launchOnStartup,
     whatsappDigestEnabled,
     lastDigestAt,
+    whatsappBridgeUrl,
     geminiModel,
   );
   @override
@@ -3673,6 +3722,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.launchOnStartup == this.launchOnStartup &&
           other.whatsappDigestEnabled == this.whatsappDigestEnabled &&
           other.lastDigestAt == this.lastDigestAt &&
+          other.whatsappBridgeUrl == this.whatsappBridgeUrl &&
           other.geminiModel == this.geminiModel);
 }
 
@@ -3693,6 +3743,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<bool> launchOnStartup;
   final Value<bool> whatsappDigestEnabled;
   final Value<DateTime?> lastDigestAt;
+  final Value<String?> whatsappBridgeUrl;
   final Value<String> geminiModel;
   final Value<int> rowid;
   const AppSettingsCompanion({
@@ -3712,6 +3763,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.launchOnStartup = const Value.absent(),
     this.whatsappDigestEnabled = const Value.absent(),
     this.lastDigestAt = const Value.absent(),
+    this.whatsappBridgeUrl = const Value.absent(),
     this.geminiModel = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3732,6 +3784,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.launchOnStartup = const Value.absent(),
     this.whatsappDigestEnabled = const Value.absent(),
     this.lastDigestAt = const Value.absent(),
+    this.whatsappBridgeUrl = const Value.absent(),
     this.geminiModel = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
@@ -3752,6 +3805,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<bool>? launchOnStartup,
     Expression<bool>? whatsappDigestEnabled,
     Expression<DateTime>? lastDigestAt,
+    Expression<String>? whatsappBridgeUrl,
     Expression<String>? geminiModel,
     Expression<int>? rowid,
   }) {
@@ -3776,6 +3830,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (whatsappDigestEnabled != null)
         'whatsapp_digest_enabled': whatsappDigestEnabled,
       if (lastDigestAt != null) 'last_digest_at': lastDigestAt,
+      if (whatsappBridgeUrl != null) 'whatsapp_bridge_url': whatsappBridgeUrl,
       if (geminiModel != null) 'gemini_model': geminiModel,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3798,6 +3853,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<bool>? launchOnStartup,
     Value<bool>? whatsappDigestEnabled,
     Value<DateTime?>? lastDigestAt,
+    Value<String?>? whatsappBridgeUrl,
     Value<String>? geminiModel,
     Value<int>? rowid,
   }) {
@@ -3820,6 +3876,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       whatsappDigestEnabled:
           whatsappDigestEnabled ?? this.whatsappDigestEnabled,
       lastDigestAt: lastDigestAt ?? this.lastDigestAt,
+      whatsappBridgeUrl: whatsappBridgeUrl ?? this.whatsappBridgeUrl,
       geminiModel: geminiModel ?? this.geminiModel,
       rowid: rowid ?? this.rowid,
     );
@@ -3882,6 +3939,9 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     if (lastDigestAt.present) {
       map['last_digest_at'] = Variable<DateTime>(lastDigestAt.value);
     }
+    if (whatsappBridgeUrl.present) {
+      map['whatsapp_bridge_url'] = Variable<String>(whatsappBridgeUrl.value);
+    }
     if (geminiModel.present) {
       map['gemini_model'] = Variable<String>(geminiModel.value);
     }
@@ -3910,6 +3970,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('launchOnStartup: $launchOnStartup, ')
           ..write('whatsappDigestEnabled: $whatsappDigestEnabled, ')
           ..write('lastDigestAt: $lastDigestAt, ')
+          ..write('whatsappBridgeUrl: $whatsappBridgeUrl, ')
           ..write('geminiModel: $geminiModel, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -7919,6 +7980,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<bool> launchOnStartup,
       Value<bool> whatsappDigestEnabled,
       Value<DateTime?> lastDigestAt,
+      Value<String?> whatsappBridgeUrl,
       Value<String> geminiModel,
       Value<int> rowid,
     });
@@ -7940,6 +8002,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<bool> launchOnStartup,
       Value<bool> whatsappDigestEnabled,
       Value<DateTime?> lastDigestAt,
+      Value<String?> whatsappBridgeUrl,
       Value<String> geminiModel,
       Value<int> rowid,
     });
@@ -8030,6 +8093,11 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<DateTime> get lastDigestAt => $composableBuilder(
     column: $table.lastDigestAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get whatsappBridgeUrl => $composableBuilder(
+    column: $table.whatsappBridgeUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8128,6 +8196,11 @@ class $$AppSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get whatsappBridgeUrl => $composableBuilder(
+    column: $table.whatsappBridgeUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<String> get geminiModel => $composableBuilder(
     column: $table.geminiModel,
     builder: (column) => ColumnOrderings(column),
@@ -8219,6 +8292,11 @@ class $$AppSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
+  GeneratedColumn<String> get whatsappBridgeUrl => $composableBuilder(
+    column: $table.whatsappBridgeUrl,
+    builder: (column) => column,
+  );
+
   GeneratedColumn<String> get geminiModel => $composableBuilder(
     column: $table.geminiModel,
     builder: (column) => column,
@@ -8272,6 +8350,7 @@ class $$AppSettingsTableTableManager
                 Value<bool> launchOnStartup = const Value.absent(),
                 Value<bool> whatsappDigestEnabled = const Value.absent(),
                 Value<DateTime?> lastDigestAt = const Value.absent(),
+                Value<String?> whatsappBridgeUrl = const Value.absent(),
                 Value<String> geminiModel = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion(
@@ -8291,6 +8370,7 @@ class $$AppSettingsTableTableManager
                 launchOnStartup: launchOnStartup,
                 whatsappDigestEnabled: whatsappDigestEnabled,
                 lastDigestAt: lastDigestAt,
+                whatsappBridgeUrl: whatsappBridgeUrl,
                 geminiModel: geminiModel,
                 rowid: rowid,
               ),
@@ -8312,6 +8392,7 @@ class $$AppSettingsTableTableManager
                 Value<bool> launchOnStartup = const Value.absent(),
                 Value<bool> whatsappDigestEnabled = const Value.absent(),
                 Value<DateTime?> lastDigestAt = const Value.absent(),
+                Value<String?> whatsappBridgeUrl = const Value.absent(),
                 Value<String> geminiModel = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion.insert(
@@ -8331,6 +8412,7 @@ class $$AppSettingsTableTableManager
                 launchOnStartup: launchOnStartup,
                 whatsappDigestEnabled: whatsappDigestEnabled,
                 lastDigestAt: lastDigestAt,
+                whatsappBridgeUrl: whatsappBridgeUrl,
                 geminiModel: geminiModel,
                 rowid: rowid,
               ),

@@ -112,4 +112,16 @@ class WidgetSyncService {
       // Fail silently or print error in debug
     }
   }
+
+  /// Request to pin the streak widget to the home screen
+  static Future<bool> pinStreakWidget() async {
+    if (kIsWeb) return false;
+    try {
+      final result = await NativeBridge.widgetSyncChannel.invokeMethod('pinStreakWidget');
+      return result == true;
+    } on PlatformException catch (e) {
+      debugPrint('Failed to pin streak widget: $e');
+      return false;
+    }
+  }
 }

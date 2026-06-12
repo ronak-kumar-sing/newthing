@@ -16,6 +16,7 @@ import '../../features/streak/models/streak_day.dart';
 import '../../features/streak/widgets/streak_clock_screen.dart';
 import '../../features/streak/widgets/wallpaper_preview.dart';
 import '../../features/streak/models/streak_widget_data.dart';
+import 'wallpaper_screen.dart';
 import '../../core/widgets/anchor_background.dart';
 import 'widgets/clock_widgets.dart';
 
@@ -256,53 +257,9 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
               const SizedBox(width: 8),
               GestureDetector(
                 onTap: () {
-                  final streakDaysAsync = ref.read(streakDaysProvider);
-                  final streakData = streakDaysAsync.valueOrNull ?? [];
-                  final settings = ref.read(settingsProvider).valueOrNull;
-                  final label = settings?.independenceLabel ?? 'Focus Goals';
-                  
-                  int currentStreak = 0;
-                  final today = DateTime.now();
-                  final todayKey = DateTime(today.year, today.month, today.day);
-                  final dateMap = {
-                    for (var d in streakData)
-                      DateTime(d.date.year, d.date.month, d.date.day): d
-                  };
-                  for (int i = 0; i <= 365; i++) {
-                    final checkDate = todayKey.subtract(Duration(days: i));
-                    final day = dateMap[checkDate];
-                    if (day != null && day.isCompleted) {
-                      currentStreak++;
-                    } else if (i == 0) {
-                      continue;
-                    } else {
-                      break;
-                    }
-                  }
-                  final completedDays = streakData.where((d) => d.isCompleted).length;
-                  const targetDays = 365;
-                  final daysLeft = math.max(0, targetDays - completedDays);
-                  final percentage = ((completedDays / targetDays) * 100.0).clamp(0.0, 100.0);
-                  final List<bool> last7 = [];
-                  for (int i = 6; i >= 0; i--) {
-                    final checkDate = todayKey.subtract(Duration(days: i));
-                    final day = dateMap[checkDate];
-                    last7.add(day?.isCompleted ?? false);
-                  }
-
-                  final data = StreakWidgetData(
-                    habitName: label,
-                    currentStreak: currentStreak,
-                    targetDays: targetDays,
-                    daysLeft: daysLeft,
-                    percentage: percentage,
-                    last7Days: last7,
-                    accentColorHex: '#C6F52C',
-                  );
-
                   Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (context) => WallpaperPreviewScreen(streakData: data),
+                      builder: (context) => const WallpaperScreen(),
                     ),
                   );
                 },

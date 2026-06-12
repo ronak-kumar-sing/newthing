@@ -93,6 +93,20 @@ class MainActivity : FlutterActivity() {
                         result.error("INVALID_ARGS", "tasks JSON list required", null)
                     }
                 }
+                "pinStreakWidget" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val appWidgetManager = AppWidgetManager.getInstance(this@MainActivity)
+                        val myProvider = ComponentName(this@MainActivity, StreakWidgetProvider::class.java)
+                        if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                            appWidgetManager.requestPinAppWidget(myProvider, null, null)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }
@@ -132,14 +146,14 @@ class MainActivity : FlutterActivity() {
         val appWidgetManager = AppWidgetManager.getInstance(this)
         val componentName = ComponentName(this, TasksWidgetProvider::class.java)
         val ids = appWidgetManager.getAppWidgetIds(componentName)
-        
+
         // Notify tasks ListView in RemoteViews to fetch latest data
         // R.id.tasks_list_view should correspond to the layout resource id
         val viewId = resources.getIdentifier("tasks_list_view", "id", packageName)
         if (viewId != 0) {
             appWidgetManager.notifyAppWidgetViewDataChanged(ids, viewId)
         }
-        
+
         val intent = Intent(this, TasksWidgetProvider::class.java).apply {
             action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)

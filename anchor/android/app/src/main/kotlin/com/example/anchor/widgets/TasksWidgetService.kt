@@ -35,11 +35,11 @@ class TasksRemoteViewsFactory(private val context: Context) : RemoteViewsService
     override fun getViewAt(position: Int): RemoteViews {
         val packageName = context.packageName
         val itemResId = context.resources.getIdentifier("task_item", "layout", packageName)
-        
+
         val views = RemoteViews(packageName, itemResId)
-        
+
         if (position >= tasksList.size) return views
-        
+
         val task = tasksList[position]
         val title = task.optString("title", "")
         val category = task.optString("category", "General")
@@ -62,7 +62,7 @@ class TasksRemoteViewsFactory(private val context: Context) : RemoteViewsService
                 views.setImageViewResource(statusIconId, drawableId)
             }
         }
-        
+
         // Make the item clickable by adding a fill-in intent
         val fillInIntent = android.content.Intent()
         val rootId = context.resources.getIdentifier("task_item_root", "id", packageName)

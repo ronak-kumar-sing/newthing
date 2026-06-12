@@ -8,7 +8,7 @@ class TodoistApi {
   String? _apiToken;
 
   TodoistApi({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    baseUrl: 'https://api.todoist.com/api/v1',
+    baseUrl: 'https://api.todoist.com/rest/v2',
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));

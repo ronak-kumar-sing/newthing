@@ -19,6 +19,9 @@ import '../../core/widgets/anchor_background.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
+import '../english/english_provider.dart';
+import '../english/english_card_widget.dart';
+import '../english/english_test_screen.dart';
 
 /// Weather state provider.
 final weatherProvider = FutureProvider<WeatherData?>((ref) async {
@@ -155,9 +158,38 @@ class MorningBriefScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AnchorTheme.stackGap),
 
+                    // English Word Of The Day Block
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final englishState = ref.watch(englishProvider);
+                        if (!englishState.hasWords) {
+                          return const SizedBox();
+                        }
+                        return FadeSlideIn(
+                          delaySeconds: 0.25,
+                          child: Padding(
+                            padding: const EdgeInsets.only(bottom: AnchorTheme.stackGap),
+                            child: WordOfTheDayCard(
+                              word: englishState.words.first,
+                              testTaken: englishState.testTaken,
+                              testScore: englishState.testScore,
+                              onSeeAll: () {
+                                // TODO: Optional list view
+                              },
+                              onStartTest: () {
+                                Navigator.of(context).push(MaterialPageRoute(
+                                  builder: (_) => EnglishTestScreen(words: englishState.words),
+                                ));
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+
                     // Daily Intention Block
                     FadeSlideIn(
-                      delaySeconds: 0.25,
+                      delaySeconds: 0.3,
                       child: const _IntentionCard(),
                     ),
                   ],

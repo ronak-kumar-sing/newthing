@@ -15,6 +15,7 @@ import '../../data/local/database.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
+import '../../features/streak/services/widget_sync_service.dart';
 
 // ─── Custom Bouncing Gesture Wrapper ───────────────────────────────────────
 class BouncingButton extends StatefulWidget {
@@ -261,7 +262,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         if (envData.containsKey('GEMINI_MODEL')) {
           _selectedModel = envData['GEMINI_MODEL']!;
         }
-        
+
         _todoistStatus = null;
         _geminiStatus = null;
       });
@@ -857,6 +858,67 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ],
                       ),
                     ).animate(delay: 240.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0, duration: 300.ms),
+
+                    // ── Home Widget Section ──
+                    _buildSectionHeader('HOME WIDGET'),
+                    GlassCard(
+                      variant: GlassVariant.surface,
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Streak Widget',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Add your Anchor Streak widget directly to your home screen to keep your focus front and center.',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              color: Colors.white.withOpacity(0.55),
+                              height: 1.5,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFC6F52C)),
+                                foregroundColor: const Color(0xFFC6F52C),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: () async {
+                                final success = await WidgetSyncService.pinStreakWidget();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        success ? 'Widget pin requested ✓' : 'Failed to request widget pin. You may need to add it manually.',
+                                        style: GoogleFonts.inter(fontSize: 13, color: Colors.black),
+                                      ),
+                                      backgroundColor: success ? const Color(0xFFC6F52C) : const Color(0xFFFFB4AB),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Text(
+                                "Pin to Home Screen",
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0, duration: 300.ms),
                   ],
                 ),
               ),
