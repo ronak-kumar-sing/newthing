@@ -44,16 +44,18 @@ class _SpinningNumberState extends AnimatedWidgetBaseState<SpinningNumber> {
 class CountdownRing extends StatelessWidget {
   final Widget child;
   final double progress;
+  final bool animate;
 
   const CountdownRing({
     super.key,
     required this.child,
     required this.progress,
+    this.animate = true,
   });
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final ring = SizedBox(
       width: 220,
       height: 220,
       child: Stack(
@@ -85,11 +87,17 @@ class CountdownRing extends StatelessWidget {
                   strokeCap: StrokeCap.round,
                 );
               },
-            ).animate(onPlay: (controller) => controller.repeat(reverse: true)),
+            ),
           ),
           child,
         ],
       ),
+    );
+
+    if (!animate) return ring;
+
+    return ring.animate(
+      onPlay: (controller) => controller.repeat(reverse: true),
     );
   }
 }

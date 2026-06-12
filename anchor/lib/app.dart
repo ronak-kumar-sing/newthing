@@ -12,6 +12,7 @@ import 'data/local/database.dart' show AppSettingsCompanion;
 import 'providers/api_provider.dart';
 import 'providers/database_provider.dart';
 import 'features/streak/services/widget_sync_service.dart';
+import 'modules/whatsapp_digest/whatsapp_notification_service.dart';
 
 /// Anchor app widget.
 /// Shows permission screen on first launch, then the main app.
@@ -109,10 +110,10 @@ class _ApiInitializerState extends ConsumerState<_ApiInitializer> {
       ));
     }
 
-    // WhatsApp bridge is NOT auto-started on mobile.
-    // Users can trigger WhatsApp via URL deeplinks instead.
-    // The Node.js bridge remains available for desktop builds only.
-    debugPrint('[App] WhatsApp bridge auto-start disabled (mobile-incompatible)');
+    // Initialize WhatsApp Notification reader
+    final whatsappDao = ref.read(whatsappDaoProvider);
+    await WhatsappNotificationService.init(whatsappDao);
+    debugPrint('[App] WhatsApp Notification Reader Initialized');
   }
 
   @override

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../modules/independence_clock/independence_clock_screen.dart';
+import '../../modules/independence_clock/widgets_screen.dart';
 import '../../modules/life_progress/life_progress_screen.dart';
 import '../../modules/morning_brief/morning_brief_screen.dart';
 import '../../modules/screen_mirror/screen_mirror_screen.dart';
@@ -23,6 +24,7 @@ class Routes {
   static const String whatsappDigest = '/whatsapp';
   static const String placementTracker = '/placement';
   static const String settings = '/settings';
+  static const String widgets = '/widgets';
 }
 
 /// GoRouter configuration for Anchor.
@@ -76,6 +78,11 @@ final GoRouter appRouter = GoRouter(
       path: Routes.settings,
       name: 'settings',
       pageBuilder: (context, state) => _buildPage(state, const SettingsScreen()),
+    ),
+    GoRoute(
+      path: Routes.widgets,
+      name: 'widgets',
+      pageBuilder: (context, state) => _buildPage(state, const WidgetsScreen()),
     ),
   ],
 );

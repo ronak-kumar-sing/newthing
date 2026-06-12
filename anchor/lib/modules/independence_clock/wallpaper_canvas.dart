@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +8,11 @@ class WallpaperCanvas extends StatelessWidget {
   final int totalDays;
   final String goalTitle;
   final Color backgroundColor;
+  final String mode; // 'color' or 'image'
+  final String imagePath;
+  final double gridScale;
+  final double overlayOpacity;
+  final String textAlignment; // 'top', 'center', 'bottom'
 
   const WallpaperCanvas({
     super.key,
@@ -14,6 +20,11 @@ class WallpaperCanvas extends StatelessWidget {
     required this.totalDays,
     required this.goalTitle,
     this.backgroundColor = const Color(0xFF0A0A0A),
+    this.mode = 'color',
+    this.imagePath = '',
+    this.gridScale = 1.0,
+    this.overlayOpacity = 0.4,
+    this.textAlignment = 'bottom',
   });
 
   @override
@@ -24,13 +35,19 @@ class WallpaperCanvas extends StatelessWidget {
       return Container(
         width: w,
         height: h,
-        color: backgroundColor,
+        color: Colors.black,
         child: _WallpaperLayout(
           screenW: w,
           screenH: h,
           daysRemaining: daysRemaining,
           totalDays: totalDays,
           goalTitle: goalTitle,
+          backgroundColor: backgroundColor,
+          mode: mode,
+          imagePath: imagePath,
+          gridScale: gridScale,
+          overlayOpacity: overlayOpacity,
+          textAlignment: textAlignment,
         ),
       );
     });
@@ -41,6 +58,12 @@ class _WallpaperLayout extends StatelessWidget {
   final double screenW, screenH;
   final int daysRemaining, totalDays;
   final String goalTitle;
+  final Color backgroundColor;
+  final String mode;
+  final String imagePath;
+  final double gridScale;
+  final double overlayOpacity;
+  final String textAlignment;
 
   const _WallpaperLayout({
     required this.screenW,
@@ -48,139 +71,139 @@ class _WallpaperLayout extends StatelessWidget {
     required this.daysRemaining,
     required this.totalDays,
     required this.goalTitle,
+    required this.backgroundColor,
+    required this.mode,
+    required this.imagePath,
+    required this.gridScale,
+    required this.overlayOpacity,
+    required this.textAlignment,
   });
 
   @override
   Widget build(BuildContext context) {
-    // ── LAYOUT CONSTANTS ──────────────────────────────────────
-    final double hMargin = screenW * 0.055; // ~20px on 375w screen
-    final double topPad = screenH * 0.08; // 8% from top
-    final double bottomPad = screenH * 0.04; // 4% from bottom
-    final double headerH = screenH * 0.20; // time + pct text area
-    final double gridGapTop = screenH * 0.025; // gap between header and grid
+    // 1. Background Widget
+    Widget bgWidget;
+    if (mode == 'image' && imagePath.isNotEmpty && File(imagePath).existsSync()) {
+      bgWidget = Image.file(
+        File(imagePath),
+        fit: BoxFit.cover,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    } else {
+      bgWidget = Container(
+        decoration: BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment.center,
+            radius: 0.9,
+            colors: [
+              backgroundColor,
+              Color.lerp(backgroundColor, Colors.black, 0.6)!,
+              Colors.black,
+            ],
+            stops: const [0.0, 0.7, 1.0],
+          ),
+        ),
+      );
+    }
 
-    // Grid fills: height = screenH - topPad - headerH - gridGapTop - bottomPad
-    final double gridH = screenH - topPad - headerH - gridGapTop - bottomPad;
-    final double gridW = screenW - hMargin * 2;
-
-    // ── AUTO DOT SIZE CALCULATION ─────────────────────────────
-    const int cols = 6;
+    // 2. Grid dimensions
+    const int cols = 18;
     final int rows = totalDays > 0 ? (totalDays / cols).ceil() : 1;
 
-    final double dotStep = gridW / cols; // step per column
-    final double dotSize = dotStep * 0.72; // dot is 72% of step
-    final double dotGap = dotStep - dotSize;
+    final double hMargin = screenW * 0.055;
+    final double gridW = screenW - hMargin * 2;
+    final double dotStep = gridW / cols;
+    
+    // Apply gridScale
+    final double dotSize = (dotStep * 0.72) * gridScale;
+    final double dotGap = (dotStep - dotStep * 0.72) * gridScale;
+    
+    final double actualGridW = cols * dotSize + (cols - 1) * dotGap;
+    final double actualGridH = rows * dotSize + (rows - 1) * dotGap;
 
-    final double rowStep = min(dotStep, gridH / rows);
-    final double finalDotSz = rowStep * 0.72;
-    final double finalDotGap = rowStep - finalDotSz;
+    // Centered Grid position
+    final double gridY = (screenH - actualGridH) / 2;
 
-    // ── ELAPSED DOTS ─────────────────────────────────────────
+    // 3. Text Position
+    double textY;
+    if (textAlignment == 'top') {
+      textY = screenH * 0.08;
+    } else if (textAlignment == 'center') {
+      textY = gridY - 75;
+    } else {
+      textY = gridY + actualGridH + 35;
+    }
+
+    // Progress % calculation
     final int elapsedDays = totalDays - daysRemaining;
     final double progressPct = totalDays > 0 ? (elapsedDays / totalDays * 100) : 0;
 
-    // ── MONTHS : DAYS FORMAT ─────────────────────────────────
-    final int monthsLeft = daysRemaining ~/ 30;
-    final int daysLeft = daysRemaining % 30;
-
-    return Stack(children: [
-      // ── TOP SECTION: time display + progress text ─────────
-      Positioned(
-        top: topPad,
-        left: hMargin,
-        right: hMargin,
-        height: headerH,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // BIG "1 : 30" time display
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(monthsLeft.toString(),
-                    style: GoogleFonts.spaceGrotesk(
-                        fontSize: screenW * 0.20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -3,
-                        height: 1.0)),
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: screenW * 0.030),
-                    child: Text(":",
-                        style: GoogleFonts.spaceGrotesk(
-                            fontSize: screenW * 0.14,
-                            fontWeight: FontWeight.w300,
-                            color: Colors.white.withOpacity(0.35),
-                            height: 1.0))),
-                Text(daysLeft.toString().padLeft(2, '0'),
-                    style: GoogleFonts.spaceGrotesk(
-                        fontSize: screenW * 0.20,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
-                        letterSpacing: -3,
-                        height: 1.0)),
-                SizedBox(width: screenW * 0.03),
-                // Small label column
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text("mo",
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: screenW * 0.030,
-                            color: Colors.white.withOpacity(0.35),
-                            fontWeight: FontWeight.w500)),
-                    const SizedBox(height: 2),
-                    Text("days",
-                        style: GoogleFonts.plusJakartaSans(
-                            fontSize: screenW * 0.030,
-                            color: Colors.white.withOpacity(0.35),
-                            fontWeight: FontWeight.w500)),
-                  ],
-                ),
-              ],
-            ),
-
-            SizedBox(height: screenH * 0.012),
-
-            // "22% / 364" progress line
-            Row(children: [
-              Text("${progressPct.round()}%",
-                  style: GoogleFonts.spaceGrotesk(
-                      fontSize: screenW * 0.048,
-                      fontWeight: FontWeight.w700,
-                      color: const Color(0xFFC6F52C))),
-              Text("  /  $totalDays days",
-                  style: GoogleFonts.plusJakartaSans(
-                      fontSize: screenW * 0.038,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white.withOpacity(0.40))),
-            ]),
-          ],
-        ),
-      ),
-
-      // ── DOT GRID ─────────────────────────────────────────
-      Positioned(
-        top: topPad + headerH + gridGapTop,
-        left: hMargin,
-        right: hMargin,
-        bottom: bottomPad,
-        child: CustomPaint(
-          painter: _DotGridPainter(
-            totalDays: totalDays,
-            elapsedDays: elapsedDays,
-            cols: cols,
-            dotSize: finalDotSz,
-            dotGap: finalDotGap,
-            filledColor: const Color(0xFF4CAF50), // green (like sketch)
-            emptyColor: Colors.white,
+    final textBlock = Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          goalTitle.toUpperCase(),
+          textAlign: TextAlign.center,
+          style: GoogleFonts.spaceGrotesk(
+            fontSize: screenW * 0.046,
+            fontWeight: FontWeight.w800,
+            color: Colors.white,
+            letterSpacing: 2.2,
           ),
         ),
-      ),
-    ]);
+        const SizedBox(height: 6),
+        Text(
+          "${progressPct.round()}% COMPLETE  ·  $daysRemaining DAYS LEFT",
+          textAlign: TextAlign.center,
+          style: GoogleFonts.plusJakartaSans(
+            fontSize: screenW * 0.030,
+            fontWeight: FontWeight.w700,
+            color: const Color(0xFFC6F52C),
+            letterSpacing: 1.0,
+          ),
+        ),
+      ],
+    );
+
+    return Stack(
+      children: [
+        Positioned.fill(child: bgWidget),
+        Positioned.fill(
+          child: Container(
+            color: Colors.black.withOpacity(overlayOpacity),
+          ),
+        ),
+        
+        // Grid custom paint
+        Positioned(
+          top: gridY,
+          left: 0,
+          right: 0,
+          height: actualGridH,
+          child: CustomPaint(
+            painter: _DotGridPainter(
+              totalDays: totalDays,
+              elapsedDays: elapsedDays,
+              cols: cols,
+              dotSize: dotSize,
+              dotGap: dotGap,
+              filledColor: const Color(0xFFC6F52C),
+              emptyColor: Colors.white,
+            ),
+          ),
+        ),
+
+        // Text overlay block
+        Positioned(
+          top: textY,
+          left: hMargin,
+          right: hMargin,
+          child: Center(child: textBlock),
+        ),
+      ],
+    );
   }
 }
 
@@ -209,7 +232,7 @@ class _DotGridPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Paint emptyPaint = Paint()
-      ..color = emptyColor.withOpacity(0.75)
+      ..color = emptyColor.withOpacity(0.12) // Subtle outline
       ..style = PaintingStyle.stroke
       ..strokeWidth = dotSize * 0.10; // thin outline
 
@@ -217,10 +240,13 @@ class _DotGridPainter extends CustomPainter {
       ..color = Colors.transparent
       ..style = PaintingStyle.fill;
 
+    final double actualGridW = cols * dotSize + (cols - 1) * dotGap;
+    final double startX = (size.width - actualGridW) / 2;
+
     for (int i = 0; i < totalDays; i++) {
       int col = i % cols;
       int row = i ~/ cols;
-      double x = col * step;
+      double x = startX + col * step;
       double y = row * step;
 
       // Don't draw if outside canvas bounds

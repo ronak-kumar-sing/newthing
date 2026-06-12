@@ -1,22 +1,17 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:drift/drift.dart' show Value;
 import 'package:go_router/go_router.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
-import '../../data/local/database.dart';
 import '../../providers/database_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../features/streak/models/streak_day.dart';
-import '../../features/streak/models/streak_day.dart';
 import '../../features/streak/widgets/streak_clock_screen.dart';
-import '../../features/streak/widgets/wallpaper_preview.dart';
-import '../../features/streak/models/streak_widget_data.dart';
 import 'wallpaper_screen.dart';
+import 'widgets_screen.dart';
 import '../../core/widgets/anchor_background.dart';
 import 'widgets/clock_widgets.dart';
 
@@ -87,15 +82,6 @@ class IndependenceClockScreen extends ConsumerStatefulWidget {
 }
 
 class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScreen> {
-  late DateTime _selectedMonth;
-
-  @override
-  void initState() {
-    super.initState();
-    final now = DateTime.now();
-    _selectedMonth = DateTime(now.year, now.month, 1);
-  }
-
   Future<void> _pickDate(BuildContext context, DateTime? current) async {
     final picked = await showDatePicker(
       context: context,
@@ -117,6 +103,8 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     if (picked != null) {
       await ref.read(settingsDaoProvider).updateTargetDate(picked);
       ref.invalidate(settingsProvider);
+      ref.invalidate(daysRemainingProvider);
+      ref.invalidate(independenceDateProvider);
     }
   }
 
@@ -127,13 +115,15 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     final goalDate = settings?.independenceDate;
     final label = settings?.independenceLabel ?? 'INDEPENDENCE CLOCK';
 
-    Duration? remaining;
-    if (goalDate != null) {
-      remaining = goalDate.difference(DateTime.now());
-    }
+    final now = DateTime.now();
+    final DateTime? startDate = goalDate?.subtract(const Duration(days: 365));
+    final int totalDays = (startDate != null && goalDate != null)
+        ? goalDate.difference(startDate).inDays
+        : 365;
+
+    Duration? remaining = goalDate?.difference(now);
     final daysLeft = remaining?.inDays ?? 0;
-    const totalDays = 365;
-    final progress = daysLeft > 0
+    final progress = (totalDays > 0 && goalDate != null)
         ? (1.0 - (daysLeft / totalDays).clamp(0.0, 1.0))
         : (goalDate != null ? 1.0 : 0.0);
 
@@ -153,7 +143,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                       // Hero Countdown Card
                       FadeSlideIn(
                         delaySeconds: 0.05,
-                        child: _buildHeroCard(daysLeft, goalDate, label, progress),
+                        child: _buildHeroCard(daysLeft, goalDate, startDate, label, progress, totalDays),
                       ),
                       const SizedBox(height: 24.0),
 
@@ -281,6 +271,32 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                 ),
               ),
               const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (context) => const WidgetsScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.05),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.widgets_rounded,
+                    size: 16,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
                 onPressed: () => context.push('/settings'),
@@ -292,12 +308,10 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     );
   }
 
-  Widget _buildHeroCard(int daysLeft, DateTime? goalDate, String label, double progress) {
-    final startDate = goalDate != null
-        ? goalDate.subtract(const Duration(days: 365))
-        : DateTime.now();
-
-    final startedStr = DateFormat('MMM d').format(startDate);
+  Widget _buildHeroCard(int daysLeft, DateTime? goalDate, DateTime? startDate, String label, double progress, int totalDays) {
+    final startedStr = startDate != null
+        ? DateFormat('MMM d').format(startDate)
+        : DateFormat('MMM d').format(DateTime.now());
     final targetStr = goalDate != null ? DateFormat('MMM d').format(goalDate) : '—';
 
     return Container(
@@ -312,6 +326,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
         children: [
           CountdownRing(
             progress: progress,
+            animate: false,
             child: SpinningNumber(
               number: goalDate != null ? daysLeft : 0,
               textStyle: GoogleFonts.sora(

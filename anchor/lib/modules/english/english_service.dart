@@ -6,110 +6,91 @@ import 'english_word_model.dart';
 class EnglishService {
   static const String _cacheKeyPrefix = 'anchor_english_';
 
+  static const List<EnglishWord> _demoWords = [
+    EnglishWord(
+      word: "Articulate",
+      meaning: "expressing ideas clearly and effectively in speech or writing",
+      exampleSentence: "She was highly articulate during the job interview, impressing the panel.",
+      pronunciation: "ar-TIK-yoo-lit",
+      topic: "Professional",
+    ),
+    EnglishWord(
+      word: "Collaborate",
+      meaning: "to work together with others to achieve a common goal",
+      exampleSentence: "We need to collaborate on this project to finish it by Friday.",
+      pronunciation: "kuh-LAB-uh-reyt",
+      topic: "Teamwork",
+    ),
+    EnglishWord(
+      word: "Resilient",
+      meaning: "able to withstand or recover quickly from difficult conditions",
+      exampleSentence: "Indian startup founders are resilient and adapt to market shifts quickly.",
+      pronunciation: "ri-ZIL-yuhnt",
+      topic: "Personal Growth",
+    ),
+    EnglishWord(
+      word: "Pragmatic",
+      meaning: "dealing with things sensibly and realistically, based on practical experience",
+      exampleSentence: "We need to take a pragmatic approach to solve this engineering bug.",
+      pronunciation: "prag-MAT-ik",
+      topic: "Problem Solving",
+    ),
+    EnglishWord(
+      word: "Empathetic",
+      meaning: "showing an ability to understand and share the feelings of others",
+      exampleSentence: "An empathetic leader listens carefully to team members' concerns.",
+      pronunciation: "em-puh-THET-ik",
+      topic: "Leadership",
+    ),
+    EnglishWord(
+      word: "Ambiguous",
+      meaning: "open to more than one interpretation; having a double meaning",
+      exampleSentence: "The instructions in the email were ambiguous, causing confusion.",
+      pronunciation: "am-BIG-yoo-uhs",
+      topic: "Communication",
+    ),
+    EnglishWord(
+      word: "Meticulous",
+      meaning: "showing great attention to detail; very careful and precise",
+      exampleSentence: "She did a meticulous job preparing the slide deck for the seminar.",
+      pronunciation: "muh-TIK-yuh-luhs",
+      topic: "Work Ethic",
+    ),
+    EnglishWord(
+      word: "Obsolete",
+      meaning: "no longer produced or used; out of date",
+      exampleSentence: "Without continuous learning, programming languages quickly become obsolete.",
+      pronunciation: "ob-suh-LEET",
+      topic: "Technology",
+    ),
+    EnglishWord(
+      word: "Subtle",
+      meaning: "so delicate or precise as to be difficult to analyze or describe",
+      exampleSentence: "There was a subtle change in his tone when we discussed the budget.",
+      pronunciation: "SUHT-l",
+      topic: "Communication",
+    ),
+    EnglishWord(
+      word: "Vibrant",
+      meaning: "full of energy and enthusiasm",
+      exampleSentence: "The university campus has a vibrant tech community.",
+      pronunciation: "VAHY-bruhnt",
+      topic: "Social",
+    ),
+  ];
+
   // Returns today's 10 words.
-  // Uses cached version if already fetched today.
-  // Only calls Gemini if no cache for today exists.
+  // Uses demo words directly to ensure offline reliability and avoid API failures.
   static Future<List<EnglishWord>> getTodayWords({
     required String geminiApiKey,
     required String geminiModel,
   }) async {
-    final today = _todayKey();
-    final prefs = await SharedPreferences.getInstance();
-    final cached = prefs.getString('$_cacheKeyPrefix$today');
-
-    if (cached != null && cached.isNotEmpty) {
-      try {
-        final List json = jsonDecode(cached) as List;
-        return json.map((j) => EnglishWord.fromJson(j as Map<String, dynamic>)).toList();
-      } catch (_) {}
-    }
-
-    final words = await _fetchFromGemini(
-      apiKey: geminiApiKey,
-      model: geminiModel,
-    );
-
-    final encoded = jsonEncode(words.map((w) => w.toJson()).toList());
-    await prefs.setString('$_cacheKeyPrefix$today', encoded);
-
-    _cleanOldCache(prefs);
-
-    return words;
-  }
-
-  static Future<List<EnglishWord>> _fetchFromGemini({
-    required String apiKey,
-    required String model,
-  }) async {
-    final prompt = """
-Generate exactly 10 English words that are useful for daily communication,
-especially for an Indian college student in professional and social situations.
-
-Rules:
-- Choose practical words used in conversations, emails, interviews, discussions.
-- Mix of formal and casual words.
-- Meanings should be simple and clear (1 sentence max).
-- Example sentences should be realistic and relatable.
-
-Return ONLY a valid JSON array. No markdown, no explanation, no code blocks.
-Just the raw JSON array:
-[
-  {
-    "word": "articulate",
-    "meaning": "to express ideas clearly and effectively",
-    "example": "She was very articulate during the group discussion.",
-    "pronunciation": "ar-TIK-yoo-let",
-    "topic": "professional"
-  }
-]
-""";
-
-    final response = await http.post(
-      Uri.parse(
-        'https://generativelanguage.googleapis.com/v1beta/models/'
-        '$model:generateContent?key=$apiKey'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'contents': [{'parts': [{'text': prompt}]}],
-        'generationConfig': {
-          'temperature': 0.8,
-          'maxOutputTokens': 1500,
-        },
-      }),
-    );
-
-    if (response.statusCode != 200) {
-      throw Exception('Gemini API error: ${response.statusCode}');
-    }
-
-    final data = jsonDecode(response.body);
-    final text = data['candidates'][0]['content']['parts'][0]['text'] as String;
-
-    final cleaned = text
-      .replaceAll('```json', '')
-      .replaceAll('```', '')
-      .trim();
-
-    final List parsed = jsonDecode(cleaned) as List;
-    return parsed.take(10).map((j) => EnglishWord.fromJson(j as Map<String, dynamic>)).toList();
+    return _demoWords;
   }
 
   static String _todayKey() {
     final now = DateTime.now();
-    return '${now.year}-${now.month.toString().padLeft(2,'0')}-${now.day.toString().padLeft(2,'0')}';
-  }
-
-  static void _cleanOldCache(SharedPreferences prefs) {
-    final cutoff = DateTime.now().subtract(const Duration(days: 7));
-    final keys = prefs.getKeys().where((k) => k.startsWith(_cacheKeyPrefix));
-    for (final k in keys) {
-      if (k.startsWith('${_cacheKeyPrefix}test_')) continue;
-      final datePart = k.substring(_cacheKeyPrefix.length);
-      try {
-        final date = DateTime.parse(datePart);
-        if (date.isBefore(cutoff)) prefs.remove(k);
-      } catch (_) {}
-    }
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   static Future<void> saveTestResult(int score) async {

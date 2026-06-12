@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:notification_listener_service/notification_listener_service.dart';
 import '../data/remote/whatsapp_bridge_api.dart';
 import 'database_provider.dart';
 
@@ -9,20 +11,21 @@ final whatsappBridgeProvider = Provider<WhatsappBridgeApi>((ref) {
 
 /// Current WhatsApp connection status.
 final waStatusProvider = FutureProvider<WAStatus>((ref) async {
-  final bridge = ref.watch(whatsappBridgeProvider);
-  return bridge.getStatus();
+  if (Platform.isAndroid) {
+    final granted = await NotificationListenerService.isPermissionGranted();
+    return granted ? WAStatus.connected : WAStatus.disconnected;
+  }
+  return WAStatus.disconnected;
 });
 
 /// Current QR code (base64 data URL) — null if not in QR state.
 final waQrCodeProvider = FutureProvider<String?>((ref) async {
-  final bridge = ref.watch(whatsappBridgeProvider);
-  return bridge.getQrCode();
+  return null;
 });
 
 /// All WhatsApp groups from the bridge.
 final waGroupsProvider = FutureProvider<List<WAGroup>>((ref) async {
-  final bridge = ref.watch(whatsappBridgeProvider);
-  return bridge.getGroups();
+  return const [];
 });
 
 /// Tracked WhatsApp groups from the local DB.

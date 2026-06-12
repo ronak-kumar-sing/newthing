@@ -83,6 +83,14 @@ class AnchorTheme {
   static TextStyle body(double size, {Color? color, FontWeight? weight}) => 
     GoogleFonts.inter(fontSize: size, color: color ?? textPrimary, fontWeight: weight ?? FontWeight.w400);
 
-  static TextStyle label(double size, {Color? color, FontWeight? weight}) => 
+  static TextStyle label(double size, {Color? color, FontWeight? weight}) =>
     GoogleFonts.inter(fontSize: size, color: color ?? textSecondary, fontWeight: weight ?? FontWeight.w600, letterSpacing: 0.5);
+}
+
+/// Hex string helper for colors (e.g. #C6F52C).
+extension ColorHex on Color {
+  String toHex() {
+    final hex = toARGB32().toRadixString(16).padLeft(8, '0');
+    return '#${hex.substring(2).toUpperCase()}';
+  }
 }

@@ -3,13 +3,13 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/design/anchor_theme.dart';
 import '../../../core/platform/native_bridge.dart';
 import '../../../data/local/database.dart';
-import '../../../providers/task_provider.dart';
-import '../../streak/models/streak_day.dart';
-import '../../streak/models/streak_widget_data.dart';
-import '../models/streak_day.dart';
 import '../../../modules/independence_clock/independence_clock_screen.dart';
+import '../../../providers/task_provider.dart';
+import '../models/streak_day.dart';
+import '../models/streak_widget_data.dart';
 
 /// Provider that reactively listens to data changes and updates native widgets.
 final widgetSyncProvider = Provider<void>((ref) {
@@ -60,7 +60,7 @@ final widgetSyncProvider = Provider<void>((ref) {
         daysLeft: daysLeft,
         percentage: percentage,
         last7Days: last7,
-        accentColorHex: "#C6F52C", // Anchor Lime Accent
+        accentColorHex: AnchorTheme.accent.toHex(),
       );
 
       WidgetSyncService.syncStreakData(widgetData);
@@ -94,8 +94,7 @@ class WidgetSyncService {
         'data': jsonStr,
       });
     } on PlatformException catch (e) {
-      // Fail silently or print error in debug
-      // Use standard print/debugPrint if available
+      debugPrint('Failed to sync streak widget data: ${e.message}');
     }
   }
 
@@ -109,7 +108,7 @@ class WidgetSyncService {
         'tasks': jsonStr,
       });
     } on PlatformException catch (e) {
-      // Fail silently or print error in debug
+      debugPrint('Failed to sync tasks widget data: ${e.message}');
     }
   }
 
@@ -121,6 +120,18 @@ class WidgetSyncService {
       return result == true;
     } on PlatformException catch (e) {
       debugPrint('Failed to pin streak widget: $e');
+      return false;
+    }
+  }
+
+  /// Request to pin the tasks widget to the home screen.
+  static Future<bool> pinTasksWidget() async {
+    if (kIsWeb) return false;
+    try {
+      final result = await NativeBridge.widgetSyncChannel.invokeMethod('pinTasksWidget');
+      return result == true;
+    } on PlatformException catch (e) {
+      debugPrint('Failed to pin tasks widget: $e');
       return false;
     }
   }

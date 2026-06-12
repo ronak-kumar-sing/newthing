@@ -12,6 +12,6 @@ void main() {
     );
 
     // Verify the app title is present
-    expect(find.text('Anchor'), findsOneWidget);
+    expect(find.text('ANCHOR'), findsOneWidget);
   });
 }

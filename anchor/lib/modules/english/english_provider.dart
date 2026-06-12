@@ -42,16 +42,16 @@ class EnglishNotifier extends StateNotifier<EnglishState> {
   EnglishNotifier() : super(EnglishState());
 
   Future<void> loadTodayWords({
-    required String geminiApiKey,
-    required String geminiModel,
+    String? geminiApiKey,
+    String? geminiModel,
   }) async {
-    if (state.isLoading) return;
+    if (state.isLoading || state.words.isNotEmpty) return;
     state = state.copyWith(isLoading: true, error: null);
 
     try {
       final words = await EnglishService.getTodayWords(
-        geminiApiKey: geminiApiKey,
-        geminiModel: geminiModel,
+        geminiApiKey: geminiApiKey ?? '',
+        geminiModel: geminiModel ?? '',
       );
       final score = await EnglishService.getTodayTestResult();
       state = state.copyWith(words: words, testScore: score, isLoading: false);

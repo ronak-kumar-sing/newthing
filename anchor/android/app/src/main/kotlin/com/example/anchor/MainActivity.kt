@@ -107,6 +107,20 @@ class MainActivity : FlutterActivity() {
                         result.success(false)
                     }
                 }
+                "pinTasksWidget" -> {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                        val appWidgetManager = AppWidgetManager.getInstance(this@MainActivity)
+                        val myProvider = ComponentName(this@MainActivity, TasksWidgetProvider::class.java)
+                        if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                            appWidgetManager.requestPinAppWidget(myProvider, null, null)
+                            result.success(true)
+                        } else {
+                            result.success(false)
+                        }
+                    } else {
+                        result.success(false)
+                    }
+                }
                 else -> result.notImplemented()
             }
         }

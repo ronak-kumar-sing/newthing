@@ -178,11 +178,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (todoistKeyController.text.isEmpty) return;
     setState(() => _testingTodoist = true);
     ref.read(todoistApiProvider).setToken(todoistKeyController.text);
-    final ok = await ref.read(todoistApiProvider).testConnection();
+    final (ok, errorMsg) = await ref.read(todoistApiProvider).testConnectionWithDetails();
     setState(() {
       _todoistStatus = ok;
       _testingTodoist = false;
     });
+    if (!ok && errorMsg != null && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          backgroundColor: const Color(0xFF2A1A1A),
+          duration: const Duration(seconds: 4),
+          content: Text(
+            'Todoist: $errorMsg',
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+          ),
+        ),
+      );
+    }
   }
 
   Future<void> _testGemini() async {
@@ -899,7 +911,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
                                       content: Text(
-                                        success ? 'Widget pin requested ✓' : 'Failed to request widget pin. You may need to add it manually.',
+                                        success ? 'Streak widget pin requested ✓' : 'Failed to request widget pin. You may need to add it manually.',
                                         style: GoogleFonts.inter(fontSize: 13, color: Colors.black),
                                       ),
                                       backgroundColor: success ? const Color(0xFFC6F52C) : const Color(0xFFFFB4AB),
@@ -908,7 +920,39 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                                 }
                               },
                               child: Text(
-                                "Pin to Home Screen",
+                                "Pin Streak Widget",
+                                style: GoogleFonts.plusJakartaSans(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton(
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Color(0xFFC6F52C)),
+                                foregroundColor: const Color(0xFFC6F52C),
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                              ),
+                              onPressed: () async {
+                                final success = await WidgetSyncService.pinTasksWidget();
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        success ? 'Tasks widget pin requested ✓' : 'Failed to request widget pin. You may need to add it manually.',
+                                        style: GoogleFonts.inter(fontSize: 13, color: Colors.black),
+                                      ),
+                                      backgroundColor: success ? const Color(0xFFC6F52C) : const Color(0xFFFFB4AB),
+                                    ),
+                                  );
+                                }
+                              },
+                              child: Text(
+                                "Pin Tasks Widget",
                                 style: GoogleFonts.plusJakartaSans(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,

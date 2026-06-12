@@ -6,7 +6,7 @@ import 'package:window_manager/window_manager.dart';
 import 'app.dart';
 import 'core/constants/env_config.dart';
 import 'core/services/background_service.dart';
-import 'dart:math';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -33,6 +33,14 @@ Future<void> _backgroundApplyWallpaper() async {
     final bgColorInt    = prefs.getInt('anchor_wallpaper_bg_color') ?? 0xFF0A0A0A;
     final startDateStr  = prefs.getString('anchor_start_date')  ?? '';
 
+    // New configurations
+    final mode          = prefs.getString('anchor_wallpaper_mode') ?? 'color';
+    final imagePath     = prefs.getString('anchor_wallpaper_image_path') ?? '';
+    final gridScale     = prefs.getDouble('anchor_wallpaper_grid_scale') ?? 1.0;
+    final overlayOpacity = prefs.getDouble('anchor_wallpaper_overlay_opacity') ?? 0.4;
+    final textAlignment = prefs.getString('anchor_wallpaper_text_alignment') ?? 'bottom';
+    final targetScreen  = prefs.getString('anchor_wallpaper_target') ?? 'both';
+
     if (targetDateStr.isEmpty) return;
 
     final targetDate = DateTime.parse(targetDateStr);
@@ -42,6 +50,14 @@ Future<void> _backgroundApplyWallpaper() async {
     final daysRemaining = targetDate.difference(now).inDays.clamp(0, 9999);
     final totalDays     = targetDate.difference(startDate).inDays.clamp(1, 9999);
     final bgColor       = Color(bgColorInt);
+
+    ui.Image? bgImage;
+    if (mode == 'image' && imagePath.isNotEmpty && File(imagePath).existsSync()) {
+      final bytes = await File(imagePath).readAsBytes();
+      final codec = await ui.instantiateImageCodec(bytes);
+      final frame = await codec.getNextFrame();
+      bgImage = frame.image;
+    }
 
     final recorder = ui.PictureRecorder();
     final canvas    = Canvas(recorder);
@@ -56,6 +72,10 @@ Future<void> _backgroundApplyWallpaper() async {
       totalDays: totalDays,
       goalTitle: goalTitle,
       bgColor: bgColor,
+      bgImage: bgImage,
+      gridScale: gridScale,
+      overlayOpacity: overlayOpacity,
+      textAlignment: textAlignment,
     );
 
     final picture = recorder.endRecording();
@@ -67,8 +87,14 @@ Future<void> _backgroundApplyWallpaper() async {
     final file    = File('${tempDir.path}/anchor_wallpaper_bg.png');
     await file.writeAsBytes(bytes.buffer.asUint8List());
 
-    await WallpaperManagerFlutter().setWallpaper(
-      file, WallpaperManagerFlutter.bothScreens);
+    int target = WallpaperManagerFlutter.bothScreens;
+    if (targetScreen == 'home') {
+      target = WallpaperManagerFlutter.homeScreen;
+    } else if (targetScreen == 'lock') {
+      target = WallpaperManagerFlutter.lockScreen;
+    }
+
+    await WallpaperManagerFlutter().setWallpaper(file, target);
 
   } catch (e) {
     debugPrint('Background wallpaper error: $e');
@@ -80,72 +106,81 @@ void _paintWallpaperHeadless({
   required double w, required double h,
   required int daysRemaining, required int totalDays,
   required String goalTitle, required Color bgColor,
+  ui.Image? bgImage,
+  required double gridScale,
+  required double overlayOpacity,
+  required String textAlignment,
 }) {
-  canvas.drawRect(Rect.fromLTWH(0, 0, w, h), Paint()..color = bgColor);
-
-  final double hMargin   = w * 0.055;
-  final double topPad    = h * 0.08;
-  final double headerH   = h * 0.20;
-  final double gridGapT  = h * 0.025;
-  final double bottomPad = h * 0.04;
-
-  final double gridW = w - hMargin * 2;
-  final double gridH = h - topPad - headerH - gridGapT - bottomPad;
-
-  final int monthsLeft = daysRemaining ~/ 30;
-  final int daysLeft   = daysRemaining % 30;
-  final int elapsed    = totalDays - daysRemaining;
-  final double pct     = totalDays > 0 ? elapsed / totalDays * 100 : 0;
-
-  void drawText(String text, Offset offset, double size, FontWeight weight, Color color) {
-    final pb = ui.ParagraphBuilder(ui.ParagraphStyle(
-      fontFamily: 'sans-serif',
-      fontSize: size,
-      fontWeight: weight,
-    ))
-      ..pushStyle(ui.TextStyle(color: color))
-      ..addText(text);
-    final para = pb.build()..layout(ui.ParagraphConstraints(width: gridW));
-    canvas.drawParagraph(para, offset);
+  // 1. Draw background
+  if (bgImage != null) {
+    final double imgW = bgImage.width.toDouble();
+    final double imgH = bgImage.height.toDouble();
+    final double scaleX = w / imgW;
+    final double scaleY = h / imgH;
+    final double scale = math.max(scaleX, scaleY);
+    final double dx = (w - imgW * scale) / 2;
+    final double dy = (h - imgH * scale) / 2;
+    canvas.drawImageRect(
+      bgImage,
+      Rect.fromLTWH(0, 0, imgW, imgH),
+      Rect.fromLTWH(dx, dy, imgW * scale, imgH * scale),
+      Paint()..isAntiAlias = true,
+    );
+  } else {
+    // Draw solid color gradient
+    final paint = Paint()
+      ..shader = ui.Gradient.radial(
+        Offset(w / 2, h / 2),
+        w * 0.9,
+        [
+          bgColor,
+          Color.lerp(bgColor, Colors.black, 0.6)!,
+          Colors.black,
+        ],
+        [0.0, 0.7, 1.0],
+      );
+    canvas.drawRect(Rect.fromLTWH(0, 0, w, h), paint);
   }
 
-  final double numSize = w * 0.20;
-  drawText(monthsLeft.toString(),
-    Offset(hMargin, topPad + headerH * 0.10), numSize,
-    FontWeight.w800, Colors.white);
-  drawText(":",
-    Offset(hMargin + numSize * 0.65, topPad + headerH * 0.18), numSize * 0.65,
-    FontWeight.w300, Colors.white.withOpacity(0.30));
-  drawText(daysLeft.toString().padLeft(2, '0'),
-    Offset(hMargin + numSize * 0.65 + numSize * 0.52, topPad + headerH * 0.10),
-    numSize, FontWeight.w800, Colors.white);
+  // 2. Draw Tint overlay
+  canvas.drawRect(
+    Rect.fromLTWH(0, 0, w, h),
+    Paint()..color = Colors.black.withOpacity(overlayOpacity),
+  );
 
-  drawText("${pct.round()}%  /  $totalDays days",
-    Offset(hMargin, topPad + headerH * 0.72),
-    w * 0.042, FontWeight.w500,
-    const Color(0xFFC6F52C));
-
-  const int cols = 6;
+  // 3. Draw Grid
+  const int cols = 18;
   final int rows = totalDays > 0 ? (totalDays / cols).ceil() : 1;
-  final double rowStep  = min(gridW / cols, gridH / rows);
-  final double dotSize  = rowStep * 0.72;
-  final double dotGap   = rowStep - dotSize;
-  final double cornerR  = dotSize * 0.28;
+  final double hMargin = w * 0.055;
+  final double gridW = w - hMargin * 2;
+  
+  final double dotStep = gridW / cols;
+  final double dotSize = (dotStep * 0.72) * gridScale;
+  final double dotGap = (dotStep - dotStep * 0.72) * gridScale;
 
-  final Paint filledP = Paint()..color = const Color(0xFF4CAF50);
+  final double actualGridW = cols * dotSize + (cols - 1) * dotGap;
+  final double actualGridH = rows * dotSize + (rows - 1) * dotGap;
+  final double gridY = (h - actualGridH) / 2;
+  final double startX = (w - actualGridW) / 2;
+
+  final Paint filledP = Paint()..color = const Color(0xFFC6F52C); // Anchor Lime Accent
   final Paint emptyP  = Paint()
-    ..color = Colors.white.withOpacity(0.70)
+    ..color = Colors.white.withOpacity(0.12) // Subtle outline
     ..style = PaintingStyle.stroke
     ..strokeWidth = dotSize * 0.10;
 
-  final double gridTop = topPad + headerH + gridGapT;
+  final double step = dotSize + dotGap;
+  final double cornerR = dotSize * 0.28;
+
+  final int elapsed = totalDays - daysRemaining;
 
   for (int i = 0; i < totalDays; i++) {
     int col = i % cols;
     int row = i ~/ cols;
-    double x = hMargin + col * (dotSize + dotGap);
-    double y = gridTop  + row * (dotSize + dotGap);
-    if (y + dotSize > h - bottomPad) break;
+    double x = startX + col * step;
+    double y = gridY + row * step;
+
+    if (y + dotSize > h) break;
 
     final rr = RRect.fromRectAndRadius(
       Rect.fromLTWH(x, y, dotSize, dotSize),
@@ -157,6 +192,47 @@ void _paintWallpaperHeadless({
       canvas.drawRRect(rr, emptyP);
     }
   }
+
+  // 4. Draw Elegant Text (No clock months:days)
+  double textY;
+  if (textAlignment == 'top') {
+    textY = h * 0.08;
+  } else if (textAlignment == 'center') {
+    textY = gridY - 140;
+  } else {
+    textY = gridY + actualGridH + 60;
+  }
+
+  final double progressPct = totalDays > 0 ? (elapsed / totalDays * 100) : 0;
+
+  void drawText(String text, Offset offset, double size, FontWeight weight, Color color) {
+    final pb = ui.ParagraphBuilder(ui.ParagraphStyle(
+      fontFamily: 'sans-serif',
+      fontSize: size,
+      fontWeight: weight,
+      textAlign: ui.TextAlign.center,
+    ))
+      ..pushStyle(ui.TextStyle(color: color))
+      ..addText(text);
+    final para = pb.build()..layout(ui.ParagraphConstraints(width: gridW));
+    canvas.drawParagraph(para, Offset((w - gridW) / 2, offset.dy));
+  }
+
+  drawText(
+    goalTitle.toUpperCase(),
+    Offset(0, textY),
+    w * 0.046,
+    FontWeight.w800,
+    Colors.white,
+  );
+
+  drawText(
+    "${progressPct.round()}% COMPLETE  ·  $daysRemaining DAYS LEFT",
+    Offset(0, textY + w * 0.046 + 15),
+    w * 0.030,
+    FontWeight.w700,
+    const Color(0xFFC6F52C),
+  );
 }
 
 void main() async {

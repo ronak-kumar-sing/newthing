@@ -8,7 +8,7 @@ class TodoistApi {
   String? _apiToken;
 
   TodoistApi({Dio? dio}) : _dio = dio ?? Dio(BaseOptions(
-    baseUrl: 'https://api.todoist.com/rest/v2',
+    baseUrl: 'https://api.todoist.com/api/v1',
     connectTimeout: const Duration(seconds: 10),
     receiveTimeout: const Duration(seconds: 10),
   ));
@@ -24,16 +24,47 @@ class TodoistApi {
 
   /// Test connectivity — fetches 1 task, returns true on success.
   Future<bool> testConnection() async {
-    if (!isAuthenticated) return false;
+    final result = await testConnectionWithDetails();
+    return result.$1;
+  }
+
+  /// Test connectivity with details — fetches 1 task, returns (success, errorMsg)
+  Future<(bool, String?)> testConnectionWithDetails() async {
+    if (!isAuthenticated) return (false, 'API token is not set');
     try {
       final response = await _dio.get(
         '/tasks',
         queryParameters: {'limit': 1},
       );
-      return response.statusCode == 200;
+      if (response.statusCode == 200) {
+        return (true, null);
+      }
+      return (false, 'HTTP ${response.statusCode}: ${response.statusMessage}');
+    } on DioException catch (e) {
+      final statusCode = e.response?.statusCode;
+      final body = e.response?.data;
+      String errorDetail;
+      switch (statusCode) {
+        case 401:
+          errorDetail = 'Unauthorized: Invalid API token. Please check your token.';
+          break;
+        case 403:
+          errorDetail = 'Forbidden: Access denied. Check your token permissions.';
+          break;
+        case 404:
+          errorDetail = 'Not Found: Endpoint not found.';
+          break;
+        case 429:
+          errorDetail = 'Rate limited: Too many requests — try again later.';
+          break;
+        default:
+          errorDetail = 'HTTP $statusCode: ${body ?? e.message}';
+      }
+      debugPrint('Todoist testConnection error ($statusCode): $body');
+      return (false, errorDetail);
     } catch (e) {
       debugPrint('Todoist testConnection error: $e');
-      return false;
+      return (false, 'Connection error: $e');
     }
   }
 

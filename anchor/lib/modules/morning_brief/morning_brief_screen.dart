@@ -22,6 +22,8 @@ import '../../core/router/app_router.dart';
 import '../english/english_provider.dart';
 import '../english/english_card_widget.dart';
 import '../english/english_test_screen.dart';
+import '../independence_clock/wallpaper_screen.dart';
+import '../independence_clock/widgets_screen.dart';
 
 /// Weather state provider.
 final weatherProvider = FutureProvider<WeatherData?>((ref) async {
@@ -107,6 +109,13 @@ class MorningBriefScreen extends ConsumerWidget {
 
     final settings = settingsAsync.valueOrNull;
     final name = settings?.userName ?? 'STUDENT';
+
+    Future.microtask(() {
+      ref.read(englishProvider.notifier).loadTodayWords(
+        geminiApiKey: settings?.geminiApiKey,
+        geminiModel: settings?.geminiModel,
+      );
+    });
 
     return Scaffold(
       backgroundColor: AnchorTheme.background,
@@ -216,10 +225,28 @@ class MorningBriefScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(12),
               side: const BorderSide(color: Color(0xFF252525), width: 1),
             ),
-            onSelected: (route) {
-              context.go(route);
+            onSelected: (val) {
+              if (val == 'widgets_screen') {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => const WidgetsScreen(),
+                  ),
+                );
+              } else {
+                context.go(val);
+              }
             },
             itemBuilder: (BuildContext context) => [
+              PopupMenuItem(
+                value: 'widgets_screen',
+                child: Row(
+                  children: [
+                    const Icon(Icons.widgets_rounded, color: Color(0xFFC6F52C), size: 18),
+                    const SizedBox(width: 10),
+                    Text('Wallpaper & Widgets', style: GoogleFonts.inter(color: Colors.white, fontSize: 14)),
+                  ],
+                ),
+              ),
               PopupMenuItem(
                 value: Routes.placementTracker,
                 child: Row(

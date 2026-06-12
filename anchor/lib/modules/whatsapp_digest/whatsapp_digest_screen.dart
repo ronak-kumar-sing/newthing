@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +7,7 @@ import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:notification_listener_service/notification_listener_service.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../data/local/database.dart';
@@ -14,6 +17,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/whatsapp_bridge_provider.dart';
 import '../../providers/task_provider.dart';
+import 'whatsapp_notification_service.dart';
 
 const _uuid = Uuid();
 
@@ -156,14 +160,18 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
   }
 
   Future<void> _startBridgeAndConnect() async {
-    final bridge = ref.read(whatsappBridgeApiProvider);
-    final started = await bridge.startBridge();
-    if (!started && mounted) {
+    if (kIsWeb || !Platform.isAndroid) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Could not start WhatsApp bridge. Is Node.js installed?', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
+        content: Text('Notification reading is only supported on Android devices.', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
         backgroundColor: AnchorTheme.statusRed,
         behavior: SnackBarBehavior.floating,
       ));
+      return;
+    }
+    final granted = await NotificationListenerService.requestPermission();
+    if (granted) {
+      final dao = ref.read(whatsappDaoProvider);
+      await WhatsappNotificationService.init(dao);
     }
     ref.invalidate(waStatusProvider);
   }
@@ -185,21 +193,15 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
 
     setState(() => _generatingDigest = true);
 
-    final bridge = ref.read(whatsappBridgeApiProvider);
     final gemini = ref.read(geminiApiProvider);
 
     for (final group in trackedGroups) {
       final since = group.lastDigestAt;
-      List<WAMessage> messages;
-      if (since != null) {
-        messages = await bridge.getMessagesSince(group.jid, since);
-      } else {
-        messages = await bridge.getMessages(group.jid);
-      }
+      final messages = await WhatsappNotificationService.getMessages(group.name, since: since);
 
       if (messages.isEmpty) continue;
 
-      final formatted = messages.map((m) => '[${m.senderName}]: ${m.text}').join('\n');
+      final formatted = messages.map((m) => '[${m['senderName']}]: ${m['text']}').join('\n');
       final summary = await gemini.summarizeWhatsappMessages(formatted);
       if (summary == null) continue;
 
@@ -214,6 +216,7 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
       ));
 
       await dao.updateGroupLastDigest(group.jid, DateTime.now());
+      await WhatsappNotificationService.clearMessagesForGroup(group.name);
 
       final syncService = ref.read(syncServiceProvider);
       syncService.backupDigest(digestId);
@@ -274,20 +277,13 @@ class _ConnectionBanner extends ConsumerWidget {
           return _StatusRow(
             icon: Icons.check_circle,
             color: AnchorTheme.statusGreen,
-            label: 'WhatsApp connected',
-            trailing: TextButton(
-              onPressed: () => ref.read(whatsappBridgeApiProvider).disconnect(),
-              child: Text('Disconnect', style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.statusRed)),
-            ),
+            label: 'WhatsApp notification reading active',
           );
         }
-        if (status == WAStatus.qrPending) {
-          return _QrCodeDialog(ref: ref);
-        }
         return _StatusRow(
-          icon: Icons.wifi_off,
+          icon: Icons.notifications_off_outlined,
           color: AnchorTheme.textMuted,
-          label: 'Not connected',
+          label: 'WhatsApp notification access required',
           trailing: GestureDetector(
             onTap: onConnect,
             child: Container(
@@ -296,13 +292,13 @@ class _ConnectionBanner extends ConsumerWidget {
                 color: const Color(0xFF25D366),
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.qr_code_scanner, color: Colors.white, size: 14),
-                  const SizedBox(width: 6),
-                  Text('Connect WhatsApp', style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.white)),
-                ],
+              child: Text(
+                'Grant Access',
+                style: GoogleFonts.inter(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -352,54 +348,7 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
-class _QrCodeDialog extends ConsumerWidget {
-  final WidgetRef ref;
-  const _QrCodeDialog({required this.ref});
 
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final qrAsync = ref.watch(waQrCodeProvider);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AnchorTheme.accent.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AnchorTheme.accent.withOpacity(0.25)),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.qr_code_scanner, size: 16, color: AnchorTheme.accent),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text('Scan with WhatsApp to connect', style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: AnchorTheme.accent)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          qrAsync.when(
-            data: (qr) => qr != null
-                ? ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: Image.memory(
-                      Uri.parse(qr).data!.contentAsBytes(),
-                      width: 200,
-                      height: 200,
-                      fit: BoxFit.contain,
-                    ),
-                  )
-                : const SizedBox(width: 200, height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent))),
-            loading: () => const SizedBox(width: 200, height: 200, child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent))),
-            error: (_, __) => const Text('Error loading QR code'),
-          ),
-          const SizedBox(height: 8),
-          Text('WhatsApp → Linked Devices → Link a Device', style: GoogleFonts.inter(fontSize: 11, color: AnchorTheme.textMuted), textAlign: TextAlign.center),
-        ],
-      ),
-    );
-  }
-}
 
 // ─── Today Tab ─────────────────────────────────────────────────
 
