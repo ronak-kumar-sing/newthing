@@ -89,6 +89,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool? _geminiStatus;
   bool _testingTodoist = false;
   bool _testingGemini = false;
+  bool _whatsappDigestEnabled = false;
   Timer? _sliderDebounce;
 
   @override
@@ -124,6 +125,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _independenceDate = settings.independenceDate;
       limitMinutes = settings.distractionLimitMinutes;
       _selectedModel = settings.geminiModel;
+      _whatsappDigestEnabled = settings.whatsappDigestEnabled;
     });
   }
 
@@ -139,6 +141,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       independenceLabel: Value(goalTitleController.text),
       distractionLimitMinutes: Value(limitMinutes),
       geminiModel: Value(_selectedModel),
+      whatsappDigestEnabled: Value(_whatsappDigestEnabled),
     ));
 
     if (_independenceDate != null) {
@@ -963,6 +966,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ],
                       ),
                     ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0, duration: 300.ms),
+
+                    // ── WhatsApp Digest Section ──
+                    _buildSectionHeader('WHATSAPP DIGEST'),
+                    GlassCard(
+                      variant: GlassVariant.surface,
+                      padding: const EdgeInsets.all(20),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Enable WhatsApp Digest',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Summarize important messages from your tracked WhatsApp groups.',
+                                  style: GoogleFonts.plusJakartaSans(
+                                    fontSize: 12,
+                                    color: Colors.white.withOpacity(0.55),
+                                    height: 1.5,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Switch(
+                            value: _whatsappDigestEnabled,
+                            onChanged: (v) => setState(() => _whatsappDigestEnabled = v),
+                            activeColor: const Color(0xFFC6F52C),
+                            activeTrackColor: const Color(0xFFC6F52C).withOpacity(0.3),
+                            inactiveTrackColor: Colors.white.withOpacity(0.10),
+                          ),
+                        ],
+                      ),
+                    ).animate(delay: 360.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0, duration: 300.ms),
                   ],
                 ),
               ),

@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 class WallpaperCanvas extends StatelessWidget {
   final int daysRemaining;
   final int totalDays;
+  final List<bool> completedDays;
   final String goalTitle;
   final Color backgroundColor;
   final String mode; // 'color' or 'image'
@@ -18,6 +19,7 @@ class WallpaperCanvas extends StatelessWidget {
     super.key,
     required this.daysRemaining,
     required this.totalDays,
+    required this.completedDays,
     required this.goalTitle,
     this.backgroundColor = const Color(0xFF0A0A0A),
     this.mode = 'color',
@@ -41,6 +43,7 @@ class WallpaperCanvas extends StatelessWidget {
           screenH: h,
           daysRemaining: daysRemaining,
           totalDays: totalDays,
+          completedDays: completedDays,
           goalTitle: goalTitle,
           backgroundColor: backgroundColor,
           mode: mode,
@@ -57,6 +60,7 @@ class WallpaperCanvas extends StatelessWidget {
 class _WallpaperLayout extends StatelessWidget {
   final double screenW, screenH;
   final int daysRemaining, totalDays;
+  final List<bool> completedDays;
   final String goalTitle;
   final Color backgroundColor;
   final String mode;
@@ -70,6 +74,7 @@ class _WallpaperLayout extends StatelessWidget {
     required this.screenH,
     required this.daysRemaining,
     required this.totalDays,
+    required this.completedDays,
     required this.goalTitle,
     required this.backgroundColor,
     required this.mode,
@@ -136,8 +141,9 @@ class _WallpaperLayout extends StatelessWidget {
     }
 
     // Progress % calculation
-    final int elapsedDays = totalDays - daysRemaining;
-    final double progressPct = totalDays > 0 ? (elapsedDays / totalDays * 100) : 0;
+    final double progressPct = totalDays > 0
+        ? ((completedDays.where((c) => c).length / totalDays) * 100)
+        : 0;
 
     final textBlock = Column(
       mainAxisSize: MainAxisSize.min,
@@ -172,10 +178,10 @@ class _WallpaperLayout extends StatelessWidget {
         Positioned.fill(child: bgWidget),
         Positioned.fill(
           child: Container(
-            color: Colors.black.withOpacity(overlayOpacity),
+            color: Colors.black.withValues(alpha: overlayOpacity),
           ),
         ),
-        
+
         // Grid custom paint
         Positioned(
           top: gridY,
@@ -185,7 +191,7 @@ class _WallpaperLayout extends StatelessWidget {
           child: CustomPaint(
             painter: _DotGridPainter(
               totalDays: totalDays,
-              elapsedDays: elapsedDays,
+              completedDays: completedDays,
               cols: cols,
               dotSize: dotSize,
               dotGap: dotGap,
@@ -208,13 +214,14 @@ class _WallpaperLayout extends StatelessWidget {
 }
 
 class _DotGridPainter extends CustomPainter {
-  final int totalDays, elapsedDays, cols;
+  final int totalDays, cols;
+  final List<bool> completedDays;
   final double dotSize, dotGap;
   final Color filledColor, emptyColor;
 
   const _DotGridPainter({
     required this.totalDays,
-    required this.elapsedDays,
+    required this.completedDays,
     required this.cols,
     required this.dotSize,
     required this.dotGap,
@@ -232,7 +239,7 @@ class _DotGridPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Paint emptyPaint = Paint()
-      ..color = emptyColor.withOpacity(0.12) // Subtle outline
+      ..color = emptyColor.withValues(alpha: 0.12) // Subtle outline
       ..style = PaintingStyle.stroke
       ..strokeWidth = dotSize * 0.10; // thin outline
 
@@ -258,8 +265,9 @@ class _DotGridPainter extends CustomPainter {
         Radius.circular(cornerR),
       );
 
-      if (i < elapsedDays) {
-        // GREEN filled square (elapsed day)
+      final isCompleted = i < completedDays.length && completedDays[i];
+      if (isCompleted) {
+        // GREEN filled square (completed day)
         canvas.drawRRect(rr, filledPaint);
       } else {
         // WHITE outlined square (remaining day)
@@ -271,5 +279,5 @@ class _DotGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotGridPainter old) =>
-      old.elapsedDays != elapsedDays || old.dotSize != dotSize;
+      old.completedDays != completedDays || old.dotSize != dotSize;
 }

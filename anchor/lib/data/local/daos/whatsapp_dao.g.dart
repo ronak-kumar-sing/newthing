@@ -6,4 +6,6 @@ part of 'whatsapp_dao.dart';
 mixin _$WhatsappDaoMixin on DatabaseAccessor<AnchorDatabase> {
   $WhatsappDigestsTable get whatsappDigests => attachedDatabase.whatsappDigests;
   $WhatsappGroupsTable get whatsappGroups => attachedDatabase.whatsappGroups;
+  $WhatsappRawMessagesTable get whatsappRawMessages =>
+      attachedDatabase.whatsappRawMessages;
 }

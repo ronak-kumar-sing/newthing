@@ -13,6 +13,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wallpaper_manager_flutter/wallpaper_manager_flutter.dart';
 import 'package:workmanager/workmanager.dart';
+import 'data/local/database.dart';
+import 'data/local/daos/journal_dao.dart';
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -25,6 +27,7 @@ void callbackDispatcher() {
 }
 
 Future<void> _backgroundApplyWallpaper() async {
+  AnchorDatabase? db;
   try {
     final prefs = await SharedPreferences.getInstance();
 
@@ -51,6 +54,21 @@ Future<void> _backgroundApplyWallpaper() async {
     final totalDays     = targetDate.difference(startDate).inDays.clamp(1, 9999);
     final bgColor       = Color(bgColorInt);
 
+    // Build actual check-in data from the database.
+    db = AnchorDatabase();
+    final journalDao = JournalDao(db);
+    final entries = await journalDao.getEntriesForRange(startDate, now);
+    final entryMap = {
+      for (var e in entries)
+        DateTime(e.date.year, e.date.month, e.date.day): e,
+    };
+    final completedDays = List<bool>.generate(totalDays, (i) {
+      final date = startDate.add(Duration(days: i));
+      final key = DateTime(date.year, date.month, date.day);
+      final entry = entryMap[key];
+      return entry != null && entry.focusRating != null && entry.focusRating! >= 3;
+    });
+
     ui.Image? bgImage;
     if (mode == 'image' && imagePath.isNotEmpty && File(imagePath).existsSync()) {
       final bytes = await File(imagePath).readAsBytes();
@@ -62,14 +80,17 @@ Future<void> _backgroundApplyWallpaper() async {
     final recorder = ui.PictureRecorder();
     final canvas    = Canvas(recorder);
 
-    const double W = 1080.0;
-    const double H = 2340.0;
+    final screenW = prefs.getDouble('anchor_wallpaper_width') ?? 1080.0;
+    final screenH = prefs.getDouble('anchor_wallpaper_height') ?? 2340.0;
+    final W = screenW * 3.0; // render at high pixel density
+    final H = screenH * 3.0;
 
     _paintWallpaperHeadless(
       canvas: canvas,
       w: W, h: H,
       daysRemaining: daysRemaining,
       totalDays: totalDays,
+      completedDays: completedDays,
       goalTitle: goalTitle,
       bgColor: bgColor,
       bgImage: bgImage,
@@ -98,6 +119,8 @@ Future<void> _backgroundApplyWallpaper() async {
 
   } catch (e) {
     debugPrint('Background wallpaper error: $e');
+  } finally {
+    db?.close();
   }
 }
 
@@ -105,6 +128,7 @@ void _paintWallpaperHeadless({
   required Canvas canvas,
   required double w, required double h,
   required int daysRemaining, required int totalDays,
+  required List<bool> completedDays,
   required String goalTitle, required Color bgColor,
   ui.Image? bgImage,
   required double gridScale,
@@ -145,7 +169,7 @@ void _paintWallpaperHeadless({
   // 2. Draw Tint overlay
   canvas.drawRect(
     Rect.fromLTWH(0, 0, w, h),
-    Paint()..color = Colors.black.withOpacity(overlayOpacity),
+    Paint()..color = Colors.black.withValues(alpha: overlayOpacity),
   );
 
   // 3. Draw Grid
@@ -153,7 +177,7 @@ void _paintWallpaperHeadless({
   final int rows = totalDays > 0 ? (totalDays / cols).ceil() : 1;
   final double hMargin = w * 0.055;
   final double gridW = w - hMargin * 2;
-  
+
   final double dotStep = gridW / cols;
   final double dotSize = (dotStep * 0.72) * gridScale;
   final double dotGap = (dotStep - dotStep * 0.72) * gridScale;
@@ -165,14 +189,14 @@ void _paintWallpaperHeadless({
 
   final Paint filledP = Paint()..color = const Color(0xFFC6F52C); // Anchor Lime Accent
   final Paint emptyP  = Paint()
-    ..color = Colors.white.withOpacity(0.12) // Subtle outline
+    ..color = Colors.white.withValues(alpha: 0.12) // Subtle outline
     ..style = PaintingStyle.stroke
     ..strokeWidth = dotSize * 0.10;
 
   final double step = dotSize + dotGap;
   final double cornerR = dotSize * 0.28;
 
-  final int elapsed = totalDays - daysRemaining;
+  final int completedCount = completedDays.where((c) => c).length;
 
   for (int i = 0; i < totalDays; i++) {
     int col = i % cols;
@@ -186,7 +210,8 @@ void _paintWallpaperHeadless({
       Rect.fromLTWH(x, y, dotSize, dotSize),
       Radius.circular(cornerR));
 
-    if (i < elapsed) {
+    final bool isCompleted = i < completedDays.length && completedDays[i];
+    if (isCompleted) {
       canvas.drawRRect(rr, filledP);
     } else {
       canvas.drawRRect(rr, emptyP);
@@ -203,7 +228,7 @@ void _paintWallpaperHeadless({
     textY = gridY + actualGridH + 60;
   }
 
-  final double progressPct = totalDays > 0 ? (elapsed / totalDays * 100) : 0;
+  final double progressPct = totalDays > 0 ? (completedCount / totalDays * 100) : 0;
 
   void drawText(String text, Offset offset, double size, FontWeight weight, Color color) {
     final pb = ui.ParagraphBuilder(ui.ParagraphStyle(

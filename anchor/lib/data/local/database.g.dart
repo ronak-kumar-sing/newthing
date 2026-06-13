@@ -2872,6 +2872,17 @@ class $AppSettingsTable extends AppSettings
         type: DriftSqlType.dateTime,
         requiredDuringInsert: false,
       );
+  static const VerificationMeta _independenceStartDateMeta =
+      const VerificationMeta('independenceStartDate');
+  @override
+  late final GeneratedColumn<DateTime> independenceStartDate =
+      GeneratedColumn<DateTime>(
+        'independence_start_date',
+        aliasedName,
+        true,
+        type: DriftSqlType.dateTime,
+        requiredDuringInsert: false,
+      );
   static const VerificationMeta _independenceLabelMeta = const VerificationMeta(
     'independenceLabel',
   );
@@ -3029,18 +3040,6 @@ class $AppSettingsTable extends AppSettings
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
-  static const VerificationMeta _whatsappBridgeUrlMeta = const VerificationMeta(
-    'whatsappBridgeUrl',
-  );
-  @override
-  late final GeneratedColumn<String> whatsappBridgeUrl =
-      GeneratedColumn<String>(
-        'whatsapp_bridge_url',
-        aliasedName,
-        true,
-        type: DriftSqlType.string,
-        requiredDuringInsert: false,
-      );
   static const VerificationMeta _geminiModelMeta = const VerificationMeta(
     'geminiModel',
   );
@@ -3058,6 +3057,7 @@ class $AppSettingsTable extends AppSettings
     id,
     userName,
     independenceDate,
+    independenceStartDate,
     independenceLabel,
     distractionLimitMinutes,
     screenTimeResetHour,
@@ -3071,7 +3071,6 @@ class $AppSettingsTable extends AppSettings
     launchOnStartup,
     whatsappDigestEnabled,
     lastDigestAt,
-    whatsappBridgeUrl,
     geminiModel,
   ];
   @override
@@ -3103,6 +3102,15 @@ class $AppSettingsTable extends AppSettings
         independenceDate.isAcceptableOrUnknown(
           data['independence_date']!,
           _independenceDateMeta,
+        ),
+      );
+    }
+    if (data.containsKey('independence_start_date')) {
+      context.handle(
+        _independenceStartDateMeta,
+        independenceStartDate.isAcceptableOrUnknown(
+          data['independence_start_date']!,
+          _independenceStartDateMeta,
         ),
       );
     }
@@ -3217,15 +3225,6 @@ class $AppSettingsTable extends AppSettings
         ),
       );
     }
-    if (data.containsKey('whatsapp_bridge_url')) {
-      context.handle(
-        _whatsappBridgeUrlMeta,
-        whatsappBridgeUrl.isAcceptableOrUnknown(
-          data['whatsapp_bridge_url']!,
-          _whatsappBridgeUrlMeta,
-        ),
-      );
-    }
     if (data.containsKey('gemini_model')) {
       context.handle(
         _geminiModelMeta,
@@ -3255,6 +3254,10 @@ class $AppSettingsTable extends AppSettings
       independenceDate: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}independence_date'],
+      ),
+      independenceStartDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}independence_start_date'],
       ),
       independenceLabel: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
@@ -3308,10 +3311,6 @@ class $AppSettingsTable extends AppSettings
         DriftSqlType.dateTime,
         data['${effectivePrefix}last_digest_at'],
       ),
-      whatsappBridgeUrl: attachedDatabase.typeMapping.read(
-        DriftSqlType.string,
-        data['${effectivePrefix}whatsapp_bridge_url'],
-      ),
       geminiModel: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}gemini_model'],
@@ -3334,6 +3333,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
 
   /// Independence goal date.
   final DateTime? independenceDate;
+
+  /// Start date of the independence journey (user-picked).
+  final DateTime? independenceStartDate;
 
   /// What the independence date represents (e.g., "Graduation").
   final String? independenceLabel;
@@ -3374,15 +3376,13 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
   /// Last digest generation timestamp.
   final DateTime? lastDigestAt;
 
-  /// Remote URL for WhatsApp Bridge (useful for mobile).
-  final String? whatsappBridgeUrl;
-
   /// Selected Gemini model for AI features.
   final String geminiModel;
   const AppSetting({
     required this.id,
     this.userName,
     this.independenceDate,
+    this.independenceStartDate,
     this.independenceLabel,
     required this.distractionLimitMinutes,
     required this.screenTimeResetHour,
@@ -3396,7 +3396,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     required this.launchOnStartup,
     required this.whatsappDigestEnabled,
     this.lastDigestAt,
-    this.whatsappBridgeUrl,
     required this.geminiModel,
   });
   @override
@@ -3408,6 +3407,11 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     }
     if (!nullToAbsent || independenceDate != null) {
       map['independence_date'] = Variable<DateTime>(independenceDate);
+    }
+    if (!nullToAbsent || independenceStartDate != null) {
+      map['independence_start_date'] = Variable<DateTime>(
+        independenceStartDate,
+      );
     }
     if (!nullToAbsent || independenceLabel != null) {
       map['independence_label'] = Variable<String>(independenceLabel);
@@ -3436,9 +3440,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     if (!nullToAbsent || lastDigestAt != null) {
       map['last_digest_at'] = Variable<DateTime>(lastDigestAt);
     }
-    if (!nullToAbsent || whatsappBridgeUrl != null) {
-      map['whatsapp_bridge_url'] = Variable<String>(whatsappBridgeUrl);
-    }
     map['gemini_model'] = Variable<String>(geminiModel);
     return map;
   }
@@ -3452,6 +3453,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       independenceDate: independenceDate == null && nullToAbsent
           ? const Value.absent()
           : Value(independenceDate),
+      independenceStartDate: independenceStartDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(independenceStartDate),
       independenceLabel: independenceLabel == null && nullToAbsent
           ? const Value.absent()
           : Value(independenceLabel),
@@ -3479,9 +3483,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       lastDigestAt: lastDigestAt == null && nullToAbsent
           ? const Value.absent()
           : Value(lastDigestAt),
-      whatsappBridgeUrl: whatsappBridgeUrl == null && nullToAbsent
-          ? const Value.absent()
-          : Value(whatsappBridgeUrl),
       geminiModel: Value(geminiModel),
     );
   }
@@ -3496,6 +3497,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       userName: serializer.fromJson<String?>(json['userName']),
       independenceDate: serializer.fromJson<DateTime?>(
         json['independenceDate'],
+      ),
+      independenceStartDate: serializer.fromJson<DateTime?>(
+        json['independenceStartDate'],
       ),
       independenceLabel: serializer.fromJson<String?>(
         json['independenceLabel'],
@@ -3520,9 +3524,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
         json['whatsappDigestEnabled'],
       ),
       lastDigestAt: serializer.fromJson<DateTime?>(json['lastDigestAt']),
-      whatsappBridgeUrl: serializer.fromJson<String?>(
-        json['whatsappBridgeUrl'],
-      ),
       geminiModel: serializer.fromJson<String>(json['geminiModel']),
     );
   }
@@ -3533,6 +3534,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'id': serializer.toJson<String>(id),
       'userName': serializer.toJson<String?>(userName),
       'independenceDate': serializer.toJson<DateTime?>(independenceDate),
+      'independenceStartDate': serializer.toJson<DateTime?>(
+        independenceStartDate,
+      ),
       'independenceLabel': serializer.toJson<String?>(independenceLabel),
       'distractionLimitMinutes': serializer.toJson<int>(
         distractionLimitMinutes,
@@ -3548,7 +3552,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       'launchOnStartup': serializer.toJson<bool>(launchOnStartup),
       'whatsappDigestEnabled': serializer.toJson<bool>(whatsappDigestEnabled),
       'lastDigestAt': serializer.toJson<DateTime?>(lastDigestAt),
-      'whatsappBridgeUrl': serializer.toJson<String?>(whatsappBridgeUrl),
       'geminiModel': serializer.toJson<String>(geminiModel),
     };
   }
@@ -3557,6 +3560,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     String? id,
     Value<String?> userName = const Value.absent(),
     Value<DateTime?> independenceDate = const Value.absent(),
+    Value<DateTime?> independenceStartDate = const Value.absent(),
     Value<String?> independenceLabel = const Value.absent(),
     int? distractionLimitMinutes,
     int? screenTimeResetHour,
@@ -3570,7 +3574,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     bool? launchOnStartup,
     bool? whatsappDigestEnabled,
     Value<DateTime?> lastDigestAt = const Value.absent(),
-    Value<String?> whatsappBridgeUrl = const Value.absent(),
     String? geminiModel,
   }) => AppSetting(
     id: id ?? this.id,
@@ -3578,6 +3581,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     independenceDate: independenceDate.present
         ? independenceDate.value
         : this.independenceDate,
+    independenceStartDate: independenceStartDate.present
+        ? independenceStartDate.value
+        : this.independenceStartDate,
     independenceLabel: independenceLabel.present
         ? independenceLabel.value
         : this.independenceLabel,
@@ -3596,9 +3602,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     launchOnStartup: launchOnStartup ?? this.launchOnStartup,
     whatsappDigestEnabled: whatsappDigestEnabled ?? this.whatsappDigestEnabled,
     lastDigestAt: lastDigestAt.present ? lastDigestAt.value : this.lastDigestAt,
-    whatsappBridgeUrl: whatsappBridgeUrl.present
-        ? whatsappBridgeUrl.value
-        : this.whatsappBridgeUrl,
     geminiModel: geminiModel ?? this.geminiModel,
   );
   AppSetting copyWithCompanion(AppSettingsCompanion data) {
@@ -3608,6 +3611,9 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       independenceDate: data.independenceDate.present
           ? data.independenceDate.value
           : this.independenceDate,
+      independenceStartDate: data.independenceStartDate.present
+          ? data.independenceStartDate.value
+          : this.independenceStartDate,
       independenceLabel: data.independenceLabel.present
           ? data.independenceLabel.value
           : this.independenceLabel,
@@ -3647,9 +3653,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
       lastDigestAt: data.lastDigestAt.present
           ? data.lastDigestAt.value
           : this.lastDigestAt,
-      whatsappBridgeUrl: data.whatsappBridgeUrl.present
-          ? data.whatsappBridgeUrl.value
-          : this.whatsappBridgeUrl,
       geminiModel: data.geminiModel.present
           ? data.geminiModel.value
           : this.geminiModel,
@@ -3662,6 +3665,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('id: $id, ')
           ..write('userName: $userName, ')
           ..write('independenceDate: $independenceDate, ')
+          ..write('independenceStartDate: $independenceStartDate, ')
           ..write('independenceLabel: $independenceLabel, ')
           ..write('distractionLimitMinutes: $distractionLimitMinutes, ')
           ..write('screenTimeResetHour: $screenTimeResetHour, ')
@@ -3675,7 +3679,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           ..write('launchOnStartup: $launchOnStartup, ')
           ..write('whatsappDigestEnabled: $whatsappDigestEnabled, ')
           ..write('lastDigestAt: $lastDigestAt, ')
-          ..write('whatsappBridgeUrl: $whatsappBridgeUrl, ')
           ..write('geminiModel: $geminiModel')
           ..write(')'))
         .toString();
@@ -3686,6 +3689,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     id,
     userName,
     independenceDate,
+    independenceStartDate,
     independenceLabel,
     distractionLimitMinutes,
     screenTimeResetHour,
@@ -3699,7 +3703,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
     launchOnStartup,
     whatsappDigestEnabled,
     lastDigestAt,
-    whatsappBridgeUrl,
     geminiModel,
   );
   @override
@@ -3709,6 +3712,7 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.id == this.id &&
           other.userName == this.userName &&
           other.independenceDate == this.independenceDate &&
+          other.independenceStartDate == this.independenceStartDate &&
           other.independenceLabel == this.independenceLabel &&
           other.distractionLimitMinutes == this.distractionLimitMinutes &&
           other.screenTimeResetHour == this.screenTimeResetHour &&
@@ -3722,7 +3726,6 @@ class AppSetting extends DataClass implements Insertable<AppSetting> {
           other.launchOnStartup == this.launchOnStartup &&
           other.whatsappDigestEnabled == this.whatsappDigestEnabled &&
           other.lastDigestAt == this.lastDigestAt &&
-          other.whatsappBridgeUrl == this.whatsappBridgeUrl &&
           other.geminiModel == this.geminiModel);
 }
 
@@ -3730,6 +3733,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<String> id;
   final Value<String?> userName;
   final Value<DateTime?> independenceDate;
+  final Value<DateTime?> independenceStartDate;
   final Value<String?> independenceLabel;
   final Value<int> distractionLimitMinutes;
   final Value<int> screenTimeResetHour;
@@ -3743,13 +3747,13 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
   final Value<bool> launchOnStartup;
   final Value<bool> whatsappDigestEnabled;
   final Value<DateTime?> lastDigestAt;
-  final Value<String?> whatsappBridgeUrl;
   final Value<String> geminiModel;
   final Value<int> rowid;
   const AppSettingsCompanion({
     this.id = const Value.absent(),
     this.userName = const Value.absent(),
     this.independenceDate = const Value.absent(),
+    this.independenceStartDate = const Value.absent(),
     this.independenceLabel = const Value.absent(),
     this.distractionLimitMinutes = const Value.absent(),
     this.screenTimeResetHour = const Value.absent(),
@@ -3763,7 +3767,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.launchOnStartup = const Value.absent(),
     this.whatsappDigestEnabled = const Value.absent(),
     this.lastDigestAt = const Value.absent(),
-    this.whatsappBridgeUrl = const Value.absent(),
     this.geminiModel = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -3771,6 +3774,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     required String id,
     this.userName = const Value.absent(),
     this.independenceDate = const Value.absent(),
+    this.independenceStartDate = const Value.absent(),
     this.independenceLabel = const Value.absent(),
     this.distractionLimitMinutes = const Value.absent(),
     this.screenTimeResetHour = const Value.absent(),
@@ -3784,7 +3788,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     this.launchOnStartup = const Value.absent(),
     this.whatsappDigestEnabled = const Value.absent(),
     this.lastDigestAt = const Value.absent(),
-    this.whatsappBridgeUrl = const Value.absent(),
     this.geminiModel = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id);
@@ -3792,6 +3795,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<String>? id,
     Expression<String>? userName,
     Expression<DateTime>? independenceDate,
+    Expression<DateTime>? independenceStartDate,
     Expression<String>? independenceLabel,
     Expression<int>? distractionLimitMinutes,
     Expression<int>? screenTimeResetHour,
@@ -3805,7 +3809,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Expression<bool>? launchOnStartup,
     Expression<bool>? whatsappDigestEnabled,
     Expression<DateTime>? lastDigestAt,
-    Expression<String>? whatsappBridgeUrl,
     Expression<String>? geminiModel,
     Expression<int>? rowid,
   }) {
@@ -3813,6 +3816,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (id != null) 'id': id,
       if (userName != null) 'user_name': userName,
       if (independenceDate != null) 'independence_date': independenceDate,
+      if (independenceStartDate != null)
+        'independence_start_date': independenceStartDate,
       if (independenceLabel != null) 'independence_label': independenceLabel,
       if (distractionLimitMinutes != null)
         'distraction_limit_minutes': distractionLimitMinutes,
@@ -3830,7 +3835,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       if (whatsappDigestEnabled != null)
         'whatsapp_digest_enabled': whatsappDigestEnabled,
       if (lastDigestAt != null) 'last_digest_at': lastDigestAt,
-      if (whatsappBridgeUrl != null) 'whatsapp_bridge_url': whatsappBridgeUrl,
       if (geminiModel != null) 'gemini_model': geminiModel,
       if (rowid != null) 'rowid': rowid,
     });
@@ -3840,6 +3844,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<String>? id,
     Value<String?>? userName,
     Value<DateTime?>? independenceDate,
+    Value<DateTime?>? independenceStartDate,
     Value<String?>? independenceLabel,
     Value<int>? distractionLimitMinutes,
     Value<int>? screenTimeResetHour,
@@ -3853,7 +3858,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     Value<bool>? launchOnStartup,
     Value<bool>? whatsappDigestEnabled,
     Value<DateTime?>? lastDigestAt,
-    Value<String?>? whatsappBridgeUrl,
     Value<String>? geminiModel,
     Value<int>? rowid,
   }) {
@@ -3861,6 +3865,8 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       id: id ?? this.id,
       userName: userName ?? this.userName,
       independenceDate: independenceDate ?? this.independenceDate,
+      independenceStartDate:
+          independenceStartDate ?? this.independenceStartDate,
       independenceLabel: independenceLabel ?? this.independenceLabel,
       distractionLimitMinutes:
           distractionLimitMinutes ?? this.distractionLimitMinutes,
@@ -3876,7 +3882,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
       whatsappDigestEnabled:
           whatsappDigestEnabled ?? this.whatsappDigestEnabled,
       lastDigestAt: lastDigestAt ?? this.lastDigestAt,
-      whatsappBridgeUrl: whatsappBridgeUrl ?? this.whatsappBridgeUrl,
       geminiModel: geminiModel ?? this.geminiModel,
       rowid: rowid ?? this.rowid,
     );
@@ -3893,6 +3898,11 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     }
     if (independenceDate.present) {
       map['independence_date'] = Variable<DateTime>(independenceDate.value);
+    }
+    if (independenceStartDate.present) {
+      map['independence_start_date'] = Variable<DateTime>(
+        independenceStartDate.value,
+      );
     }
     if (independenceLabel.present) {
       map['independence_label'] = Variable<String>(independenceLabel.value);
@@ -3939,9 +3949,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
     if (lastDigestAt.present) {
       map['last_digest_at'] = Variable<DateTime>(lastDigestAt.value);
     }
-    if (whatsappBridgeUrl.present) {
-      map['whatsapp_bridge_url'] = Variable<String>(whatsappBridgeUrl.value);
-    }
     if (geminiModel.present) {
       map['gemini_model'] = Variable<String>(geminiModel.value);
     }
@@ -3957,6 +3964,7 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('id: $id, ')
           ..write('userName: $userName, ')
           ..write('independenceDate: $independenceDate, ')
+          ..write('independenceStartDate: $independenceStartDate, ')
           ..write('independenceLabel: $independenceLabel, ')
           ..write('distractionLimitMinutes: $distractionLimitMinutes, ')
           ..write('screenTimeResetHour: $screenTimeResetHour, ')
@@ -3970,7 +3978,6 @@ class AppSettingsCompanion extends UpdateCompanion<AppSetting> {
           ..write('launchOnStartup: $launchOnStartup, ')
           ..write('whatsappDigestEnabled: $whatsappDigestEnabled, ')
           ..write('lastDigestAt: $lastDigestAt, ')
-          ..write('whatsappBridgeUrl: $whatsappBridgeUrl, ')
           ..write('geminiModel: $geminiModel, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -6084,6 +6091,550 @@ class WhatsappGroupsCompanion extends UpdateCompanion<WhatsappGroup> {
   }
 }
 
+class $WhatsappRawMessagesTable extends WhatsappRawMessages
+    with TableInfo<$WhatsappRawMessagesTable, WhatsappRawMessage> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $WhatsappRawMessagesTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _groupJidMeta = const VerificationMeta(
+    'groupJid',
+  );
+  @override
+  late final GeneratedColumn<String> groupJid = GeneratedColumn<String>(
+    'group_jid',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _groupNameMeta = const VerificationMeta(
+    'groupName',
+  );
+  @override
+  late final GeneratedColumn<String> groupName = GeneratedColumn<String>(
+    'group_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _senderNameMeta = const VerificationMeta(
+    'senderName',
+  );
+  @override
+  late final GeneratedColumn<String> senderName = GeneratedColumn<String>(
+    'sender_name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _messageTextMeta = const VerificationMeta(
+    'messageText',
+  );
+  @override
+  late final GeneratedColumn<String> messageText = GeneratedColumn<String>(
+    'message_text',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _timestampMeta = const VerificationMeta(
+    'timestamp',
+  );
+  @override
+  late final GeneratedColumn<DateTime> timestamp = GeneratedColumn<DateTime>(
+    'timestamp',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _isProcessedMeta = const VerificationMeta(
+    'isProcessed',
+  );
+  @override
+  late final GeneratedColumn<bool> isProcessed = GeneratedColumn<bool>(
+    'is_processed',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_processed" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    groupJid,
+    groupName,
+    senderName,
+    messageText,
+    timestamp,
+    isProcessed,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'whatsapp_raw_messages';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<WhatsappRawMessage> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('group_jid')) {
+      context.handle(
+        _groupJidMeta,
+        groupJid.isAcceptableOrUnknown(data['group_jid']!, _groupJidMeta),
+      );
+    }
+    if (data.containsKey('group_name')) {
+      context.handle(
+        _groupNameMeta,
+        groupName.isAcceptableOrUnknown(data['group_name']!, _groupNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_groupNameMeta);
+    }
+    if (data.containsKey('sender_name')) {
+      context.handle(
+        _senderNameMeta,
+        senderName.isAcceptableOrUnknown(data['sender_name']!, _senderNameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_senderNameMeta);
+    }
+    if (data.containsKey('message_text')) {
+      context.handle(
+        _messageTextMeta,
+        messageText.isAcceptableOrUnknown(
+          data['message_text']!,
+          _messageTextMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_messageTextMeta);
+    }
+    if (data.containsKey('timestamp')) {
+      context.handle(
+        _timestampMeta,
+        timestamp.isAcceptableOrUnknown(data['timestamp']!, _timestampMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_timestampMeta);
+    }
+    if (data.containsKey('is_processed')) {
+      context.handle(
+        _isProcessedMeta,
+        isProcessed.isAcceptableOrUnknown(
+          data['is_processed']!,
+          _isProcessedMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_isProcessedMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_createdAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  WhatsappRawMessage map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return WhatsappRawMessage(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      groupJid: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_jid'],
+      ),
+      groupName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}group_name'],
+      )!,
+      senderName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}sender_name'],
+      )!,
+      messageText: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}message_text'],
+      )!,
+      timestamp: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}timestamp'],
+      )!,
+      isProcessed: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_processed'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $WhatsappRawMessagesTable createAlias(String alias) {
+    return $WhatsappRawMessagesTable(attachedDatabase, alias);
+  }
+}
+
+class WhatsappRawMessage extends DataClass
+    implements Insertable<WhatsappRawMessage> {
+  /// Stable message id used for deduplication.
+  final String id;
+
+  /// WhatsApp group JID, when available.
+  final String? groupJid;
+
+  /// Human-readable group or chat name (the notification title).
+  final String groupName;
+
+  /// Display name of the message sender.
+  final String senderName;
+
+  /// Message text after sender extraction and filtering.
+  final String messageText;
+
+  /// Best-effort message timestamp (when the notification was received).
+  final DateTime timestamp;
+
+  /// Whether this message has already been included in a digest.
+  final bool isProcessed;
+
+  /// When the row was created locally.
+  final DateTime createdAt;
+  const WhatsappRawMessage({
+    required this.id,
+    this.groupJid,
+    required this.groupName,
+    required this.senderName,
+    required this.messageText,
+    required this.timestamp,
+    required this.isProcessed,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    if (!nullToAbsent || groupJid != null) {
+      map['group_jid'] = Variable<String>(groupJid);
+    }
+    map['group_name'] = Variable<String>(groupName);
+    map['sender_name'] = Variable<String>(senderName);
+    map['message_text'] = Variable<String>(messageText);
+    map['timestamp'] = Variable<DateTime>(timestamp);
+    map['is_processed'] = Variable<bool>(isProcessed);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  WhatsappRawMessagesCompanion toCompanion(bool nullToAbsent) {
+    return WhatsappRawMessagesCompanion(
+      id: Value(id),
+      groupJid: groupJid == null && nullToAbsent
+          ? const Value.absent()
+          : Value(groupJid),
+      groupName: Value(groupName),
+      senderName: Value(senderName),
+      messageText: Value(messageText),
+      timestamp: Value(timestamp),
+      isProcessed: Value(isProcessed),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory WhatsappRawMessage.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return WhatsappRawMessage(
+      id: serializer.fromJson<String>(json['id']),
+      groupJid: serializer.fromJson<String?>(json['groupJid']),
+      groupName: serializer.fromJson<String>(json['groupName']),
+      senderName: serializer.fromJson<String>(json['senderName']),
+      messageText: serializer.fromJson<String>(json['messageText']),
+      timestamp: serializer.fromJson<DateTime>(json['timestamp']),
+      isProcessed: serializer.fromJson<bool>(json['isProcessed']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'groupJid': serializer.toJson<String?>(groupJid),
+      'groupName': serializer.toJson<String>(groupName),
+      'senderName': serializer.toJson<String>(senderName),
+      'messageText': serializer.toJson<String>(messageText),
+      'timestamp': serializer.toJson<DateTime>(timestamp),
+      'isProcessed': serializer.toJson<bool>(isProcessed),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  WhatsappRawMessage copyWith({
+    String? id,
+    Value<String?> groupJid = const Value.absent(),
+    String? groupName,
+    String? senderName,
+    String? messageText,
+    DateTime? timestamp,
+    bool? isProcessed,
+    DateTime? createdAt,
+  }) => WhatsappRawMessage(
+    id: id ?? this.id,
+    groupJid: groupJid.present ? groupJid.value : this.groupJid,
+    groupName: groupName ?? this.groupName,
+    senderName: senderName ?? this.senderName,
+    messageText: messageText ?? this.messageText,
+    timestamp: timestamp ?? this.timestamp,
+    isProcessed: isProcessed ?? this.isProcessed,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  WhatsappRawMessage copyWithCompanion(WhatsappRawMessagesCompanion data) {
+    return WhatsappRawMessage(
+      id: data.id.present ? data.id.value : this.id,
+      groupJid: data.groupJid.present ? data.groupJid.value : this.groupJid,
+      groupName: data.groupName.present ? data.groupName.value : this.groupName,
+      senderName: data.senderName.present
+          ? data.senderName.value
+          : this.senderName,
+      messageText: data.messageText.present
+          ? data.messageText.value
+          : this.messageText,
+      timestamp: data.timestamp.present ? data.timestamp.value : this.timestamp,
+      isProcessed: data.isProcessed.present
+          ? data.isProcessed.value
+          : this.isProcessed,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WhatsappRawMessage(')
+          ..write('id: $id, ')
+          ..write('groupJid: $groupJid, ')
+          ..write('groupName: $groupName, ')
+          ..write('senderName: $senderName, ')
+          ..write('messageText: $messageText, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isProcessed: $isProcessed, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    groupJid,
+    groupName,
+    senderName,
+    messageText,
+    timestamp,
+    isProcessed,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WhatsappRawMessage &&
+          other.id == this.id &&
+          other.groupJid == this.groupJid &&
+          other.groupName == this.groupName &&
+          other.senderName == this.senderName &&
+          other.messageText == this.messageText &&
+          other.timestamp == this.timestamp &&
+          other.isProcessed == this.isProcessed &&
+          other.createdAt == this.createdAt);
+}
+
+class WhatsappRawMessagesCompanion extends UpdateCompanion<WhatsappRawMessage> {
+  final Value<String> id;
+  final Value<String?> groupJid;
+  final Value<String> groupName;
+  final Value<String> senderName;
+  final Value<String> messageText;
+  final Value<DateTime> timestamp;
+  final Value<bool> isProcessed;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const WhatsappRawMessagesCompanion({
+    this.id = const Value.absent(),
+    this.groupJid = const Value.absent(),
+    this.groupName = const Value.absent(),
+    this.senderName = const Value.absent(),
+    this.messageText = const Value.absent(),
+    this.timestamp = const Value.absent(),
+    this.isProcessed = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  WhatsappRawMessagesCompanion.insert({
+    required String id,
+    this.groupJid = const Value.absent(),
+    required String groupName,
+    required String senderName,
+    required String messageText,
+    required DateTime timestamp,
+    required bool isProcessed,
+    required DateTime createdAt,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       groupName = Value(groupName),
+       senderName = Value(senderName),
+       messageText = Value(messageText),
+       timestamp = Value(timestamp),
+       isProcessed = Value(isProcessed),
+       createdAt = Value(createdAt);
+  static Insertable<WhatsappRawMessage> custom({
+    Expression<String>? id,
+    Expression<String>? groupJid,
+    Expression<String>? groupName,
+    Expression<String>? senderName,
+    Expression<String>? messageText,
+    Expression<DateTime>? timestamp,
+    Expression<bool>? isProcessed,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (groupJid != null) 'group_jid': groupJid,
+      if (groupName != null) 'group_name': groupName,
+      if (senderName != null) 'sender_name': senderName,
+      if (messageText != null) 'message_text': messageText,
+      if (timestamp != null) 'timestamp': timestamp,
+      if (isProcessed != null) 'is_processed': isProcessed,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  WhatsappRawMessagesCompanion copyWith({
+    Value<String>? id,
+    Value<String?>? groupJid,
+    Value<String>? groupName,
+    Value<String>? senderName,
+    Value<String>? messageText,
+    Value<DateTime>? timestamp,
+    Value<bool>? isProcessed,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return WhatsappRawMessagesCompanion(
+      id: id ?? this.id,
+      groupJid: groupJid ?? this.groupJid,
+      groupName: groupName ?? this.groupName,
+      senderName: senderName ?? this.senderName,
+      messageText: messageText ?? this.messageText,
+      timestamp: timestamp ?? this.timestamp,
+      isProcessed: isProcessed ?? this.isProcessed,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (groupJid.present) {
+      map['group_jid'] = Variable<String>(groupJid.value);
+    }
+    if (groupName.present) {
+      map['group_name'] = Variable<String>(groupName.value);
+    }
+    if (senderName.present) {
+      map['sender_name'] = Variable<String>(senderName.value);
+    }
+    if (messageText.present) {
+      map['message_text'] = Variable<String>(messageText.value);
+    }
+    if (timestamp.present) {
+      map['timestamp'] = Variable<DateTime>(timestamp.value);
+    }
+    if (isProcessed.present) {
+      map['is_processed'] = Variable<bool>(isProcessed.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('WhatsappRawMessagesCompanion(')
+          ..write('id: $id, ')
+          ..write('groupJid: $groupJid, ')
+          ..write('groupName: $groupName, ')
+          ..write('senderName: $senderName, ')
+          ..write('messageText: $messageText, ')
+          ..write('timestamp: $timestamp, ')
+          ..write('isProcessed: $isProcessed, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PlacementsTable extends Placements
     with TableInfo<$PlacementsTable, PlacementApplication> {
   @override
@@ -6621,6 +7172,8 @@ abstract class _$AnchorDatabase extends GeneratedDatabase {
     this,
   );
   late final $WhatsappGroupsTable whatsappGroups = $WhatsappGroupsTable(this);
+  late final $WhatsappRawMessagesTable whatsappRawMessages =
+      $WhatsappRawMessagesTable(this);
   late final $PlacementsTable placements = $PlacementsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
@@ -6637,6 +7190,7 @@ abstract class _$AnchorDatabase extends GeneratedDatabase {
     chatMessages,
     whatsappDigests,
     whatsappGroups,
+    whatsappRawMessages,
     placements,
   ];
 }
@@ -7967,6 +8521,7 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       required String id,
       Value<String?> userName,
       Value<DateTime?> independenceDate,
+      Value<DateTime?> independenceStartDate,
       Value<String?> independenceLabel,
       Value<int> distractionLimitMinutes,
       Value<int> screenTimeResetHour,
@@ -7980,7 +8535,6 @@ typedef $$AppSettingsTableCreateCompanionBuilder =
       Value<bool> launchOnStartup,
       Value<bool> whatsappDigestEnabled,
       Value<DateTime?> lastDigestAt,
-      Value<String?> whatsappBridgeUrl,
       Value<String> geminiModel,
       Value<int> rowid,
     });
@@ -7989,6 +8543,7 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<String> id,
       Value<String?> userName,
       Value<DateTime?> independenceDate,
+      Value<DateTime?> independenceStartDate,
       Value<String?> independenceLabel,
       Value<int> distractionLimitMinutes,
       Value<int> screenTimeResetHour,
@@ -8002,7 +8557,6 @@ typedef $$AppSettingsTableUpdateCompanionBuilder =
       Value<bool> launchOnStartup,
       Value<bool> whatsappDigestEnabled,
       Value<DateTime?> lastDigestAt,
-      Value<String?> whatsappBridgeUrl,
       Value<String> geminiModel,
       Value<int> rowid,
     });
@@ -8028,6 +8582,11 @@ class $$AppSettingsTableFilterComposer
 
   ColumnFilters<DateTime> get independenceDate => $composableBuilder(
     column: $table.independenceDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get independenceStartDate => $composableBuilder(
+    column: $table.independenceStartDate,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8096,11 +8655,6 @@ class $$AppSettingsTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
-  ColumnFilters<String> get whatsappBridgeUrl => $composableBuilder(
-    column: $table.whatsappBridgeUrl,
-    builder: (column) => ColumnFilters(column),
-  );
-
   ColumnFilters<String> get geminiModel => $composableBuilder(
     column: $table.geminiModel,
     builder: (column) => ColumnFilters(column),
@@ -8128,6 +8682,11 @@ class $$AppSettingsTableOrderingComposer
 
   ColumnOrderings<DateTime> get independenceDate => $composableBuilder(
     column: $table.independenceDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get independenceStartDate => $composableBuilder(
+    column: $table.independenceStartDate,
     builder: (column) => ColumnOrderings(column),
   );
 
@@ -8196,11 +8755,6 @@ class $$AppSettingsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
-  ColumnOrderings<String> get whatsappBridgeUrl => $composableBuilder(
-    column: $table.whatsappBridgeUrl,
-    builder: (column) => ColumnOrderings(column),
-  );
-
   ColumnOrderings<String> get geminiModel => $composableBuilder(
     column: $table.geminiModel,
     builder: (column) => ColumnOrderings(column),
@@ -8224,6 +8778,11 @@ class $$AppSettingsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get independenceDate => $composableBuilder(
     column: $table.independenceDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get independenceStartDate => $composableBuilder(
+    column: $table.independenceStartDate,
     builder: (column) => column,
   );
 
@@ -8292,11 +8851,6 @@ class $$AppSettingsTableAnnotationComposer
     builder: (column) => column,
   );
 
-  GeneratedColumn<String> get whatsappBridgeUrl => $composableBuilder(
-    column: $table.whatsappBridgeUrl,
-    builder: (column) => column,
-  );
-
   GeneratedColumn<String> get geminiModel => $composableBuilder(
     column: $table.geminiModel,
     builder: (column) => column,
@@ -8337,6 +8891,7 @@ class $$AppSettingsTableTableManager
                 Value<String> id = const Value.absent(),
                 Value<String?> userName = const Value.absent(),
                 Value<DateTime?> independenceDate = const Value.absent(),
+                Value<DateTime?> independenceStartDate = const Value.absent(),
                 Value<String?> independenceLabel = const Value.absent(),
                 Value<int> distractionLimitMinutes = const Value.absent(),
                 Value<int> screenTimeResetHour = const Value.absent(),
@@ -8350,13 +8905,13 @@ class $$AppSettingsTableTableManager
                 Value<bool> launchOnStartup = const Value.absent(),
                 Value<bool> whatsappDigestEnabled = const Value.absent(),
                 Value<DateTime?> lastDigestAt = const Value.absent(),
-                Value<String?> whatsappBridgeUrl = const Value.absent(),
                 Value<String> geminiModel = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion(
                 id: id,
                 userName: userName,
                 independenceDate: independenceDate,
+                independenceStartDate: independenceStartDate,
                 independenceLabel: independenceLabel,
                 distractionLimitMinutes: distractionLimitMinutes,
                 screenTimeResetHour: screenTimeResetHour,
@@ -8370,7 +8925,6 @@ class $$AppSettingsTableTableManager
                 launchOnStartup: launchOnStartup,
                 whatsappDigestEnabled: whatsappDigestEnabled,
                 lastDigestAt: lastDigestAt,
-                whatsappBridgeUrl: whatsappBridgeUrl,
                 geminiModel: geminiModel,
                 rowid: rowid,
               ),
@@ -8379,6 +8933,7 @@ class $$AppSettingsTableTableManager
                 required String id,
                 Value<String?> userName = const Value.absent(),
                 Value<DateTime?> independenceDate = const Value.absent(),
+                Value<DateTime?> independenceStartDate = const Value.absent(),
                 Value<String?> independenceLabel = const Value.absent(),
                 Value<int> distractionLimitMinutes = const Value.absent(),
                 Value<int> screenTimeResetHour = const Value.absent(),
@@ -8392,13 +8947,13 @@ class $$AppSettingsTableTableManager
                 Value<bool> launchOnStartup = const Value.absent(),
                 Value<bool> whatsappDigestEnabled = const Value.absent(),
                 Value<DateTime?> lastDigestAt = const Value.absent(),
-                Value<String?> whatsappBridgeUrl = const Value.absent(),
                 Value<String> geminiModel = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => AppSettingsCompanion.insert(
                 id: id,
                 userName: userName,
                 independenceDate: independenceDate,
+                independenceStartDate: independenceStartDate,
                 independenceLabel: independenceLabel,
                 distractionLimitMinutes: distractionLimitMinutes,
                 screenTimeResetHour: screenTimeResetHour,
@@ -8412,7 +8967,6 @@ class $$AppSettingsTableTableManager
                 launchOnStartup: launchOnStartup,
                 whatsappDigestEnabled: whatsappDigestEnabled,
                 lastDigestAt: lastDigestAt,
-                whatsappBridgeUrl: whatsappBridgeUrl,
                 geminiModel: geminiModel,
                 rowid: rowid,
               ),
@@ -9558,6 +10112,285 @@ typedef $$WhatsappGroupsTableProcessedTableManager =
       WhatsappGroup,
       PrefetchHooks Function()
     >;
+typedef $$WhatsappRawMessagesTableCreateCompanionBuilder =
+    WhatsappRawMessagesCompanion Function({
+      required String id,
+      Value<String?> groupJid,
+      required String groupName,
+      required String senderName,
+      required String messageText,
+      required DateTime timestamp,
+      required bool isProcessed,
+      required DateTime createdAt,
+      Value<int> rowid,
+    });
+typedef $$WhatsappRawMessagesTableUpdateCompanionBuilder =
+    WhatsappRawMessagesCompanion Function({
+      Value<String> id,
+      Value<String?> groupJid,
+      Value<String> groupName,
+      Value<String> senderName,
+      Value<String> messageText,
+      Value<DateTime> timestamp,
+      Value<bool> isProcessed,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$WhatsappRawMessagesTableFilterComposer
+    extends Composer<_$AnchorDatabase, $WhatsappRawMessagesTable> {
+  $$WhatsappRawMessagesTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupJid => $composableBuilder(
+    column: $table.groupJid,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get groupName => $composableBuilder(
+    column: $table.groupName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get senderName => $composableBuilder(
+    column: $table.senderName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isProcessed => $composableBuilder(
+    column: $table.isProcessed,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$WhatsappRawMessagesTableOrderingComposer
+    extends Composer<_$AnchorDatabase, $WhatsappRawMessagesTable> {
+  $$WhatsappRawMessagesTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupJid => $composableBuilder(
+    column: $table.groupJid,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get groupName => $composableBuilder(
+    column: $table.groupName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get senderName => $composableBuilder(
+    column: $table.senderName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get timestamp => $composableBuilder(
+    column: $table.timestamp,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isProcessed => $composableBuilder(
+    column: $table.isProcessed,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$WhatsappRawMessagesTableAnnotationComposer
+    extends Composer<_$AnchorDatabase, $WhatsappRawMessagesTable> {
+  $$WhatsappRawMessagesTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get groupJid =>
+      $composableBuilder(column: $table.groupJid, builder: (column) => column);
+
+  GeneratedColumn<String> get groupName =>
+      $composableBuilder(column: $table.groupName, builder: (column) => column);
+
+  GeneratedColumn<String> get senderName => $composableBuilder(
+    column: $table.senderName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get messageText => $composableBuilder(
+    column: $table.messageText,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get timestamp =>
+      $composableBuilder(column: $table.timestamp, builder: (column) => column);
+
+  GeneratedColumn<bool> get isProcessed => $composableBuilder(
+    column: $table.isProcessed,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$WhatsappRawMessagesTableTableManager
+    extends
+        RootTableManager<
+          _$AnchorDatabase,
+          $WhatsappRawMessagesTable,
+          WhatsappRawMessage,
+          $$WhatsappRawMessagesTableFilterComposer,
+          $$WhatsappRawMessagesTableOrderingComposer,
+          $$WhatsappRawMessagesTableAnnotationComposer,
+          $$WhatsappRawMessagesTableCreateCompanionBuilder,
+          $$WhatsappRawMessagesTableUpdateCompanionBuilder,
+          (
+            WhatsappRawMessage,
+            BaseReferences<
+              _$AnchorDatabase,
+              $WhatsappRawMessagesTable,
+              WhatsappRawMessage
+            >,
+          ),
+          WhatsappRawMessage,
+          PrefetchHooks Function()
+        > {
+  $$WhatsappRawMessagesTableTableManager(
+    _$AnchorDatabase db,
+    $WhatsappRawMessagesTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$WhatsappRawMessagesTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$WhatsappRawMessagesTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$WhatsappRawMessagesTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String?> groupJid = const Value.absent(),
+                Value<String> groupName = const Value.absent(),
+                Value<String> senderName = const Value.absent(),
+                Value<String> messageText = const Value.absent(),
+                Value<DateTime> timestamp = const Value.absent(),
+                Value<bool> isProcessed = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => WhatsappRawMessagesCompanion(
+                id: id,
+                groupJid: groupJid,
+                groupName: groupName,
+                senderName: senderName,
+                messageText: messageText,
+                timestamp: timestamp,
+                isProcessed: isProcessed,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                Value<String?> groupJid = const Value.absent(),
+                required String groupName,
+                required String senderName,
+                required String messageText,
+                required DateTime timestamp,
+                required bool isProcessed,
+                required DateTime createdAt,
+                Value<int> rowid = const Value.absent(),
+              }) => WhatsappRawMessagesCompanion.insert(
+                id: id,
+                groupJid: groupJid,
+                groupName: groupName,
+                senderName: senderName,
+                messageText: messageText,
+                timestamp: timestamp,
+                isProcessed: isProcessed,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$WhatsappRawMessagesTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AnchorDatabase,
+      $WhatsappRawMessagesTable,
+      WhatsappRawMessage,
+      $$WhatsappRawMessagesTableFilterComposer,
+      $$WhatsappRawMessagesTableOrderingComposer,
+      $$WhatsappRawMessagesTableAnnotationComposer,
+      $$WhatsappRawMessagesTableCreateCompanionBuilder,
+      $$WhatsappRawMessagesTableUpdateCompanionBuilder,
+      (
+        WhatsappRawMessage,
+        BaseReferences<
+          _$AnchorDatabase,
+          $WhatsappRawMessagesTable,
+          WhatsappRawMessage
+        >,
+      ),
+      WhatsappRawMessage,
+      PrefetchHooks Function()
+    >;
 typedef $$PlacementsTableCreateCompanionBuilder =
     PlacementsCompanion Function({
       required String id,
@@ -9851,6 +10684,8 @@ class $AnchorDatabaseManager {
       $$WhatsappDigestsTableTableManager(_db, _db.whatsappDigests);
   $$WhatsappGroupsTableTableManager get whatsappGroups =>
       $$WhatsappGroupsTableTableManager(_db, _db.whatsappGroups);
+  $$WhatsappRawMessagesTableTableManager get whatsappRawMessages =>
+      $$WhatsappRawMessagesTableTableManager(_db, _db.whatsappRawMessages);
   $$PlacementsTableTableManager get placements =>
       $$PlacementsTableTableManager(_db, _db.placements);
 }

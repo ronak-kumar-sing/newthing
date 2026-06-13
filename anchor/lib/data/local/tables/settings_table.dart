@@ -11,6 +11,9 @@ class AppSettings extends Table {
   /// Independence goal date.
   DateTimeColumn get independenceDate => dateTime().nullable()();
 
+  /// Start date of the independence journey (user-picked).
+  DateTimeColumn get independenceStartDate => dateTime().nullable()();
+
   /// What the independence date represents (e.g., "Graduation").
   TextColumn get independenceLabel => text().nullable()();
 

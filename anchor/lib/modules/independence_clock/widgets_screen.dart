@@ -6,61 +6,94 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/anchor_background.dart';
 import '../../core/widgets/slice_widgets.dart';
-import '../../data/local/database.dart';
 import '../../features/streak/models/streak_widget_data.dart';
 import '../../features/streak/services/widget_sync_service.dart';
-import '../../providers/database_provider.dart';
-import '../../providers/settings_provider.dart';
-import '../../providers/task_provider.dart';
+import '../../providers/journey_config_provider.dart';
 
 /// Live streak data for the widget preview.
 final _widgetStreakPreviewProvider = FutureProvider<StreakWidgetData>((ref) async {
-  final dao = ref.watch(journalDaoProvider);
-  final settings = await ref.watch(settingsProvider.future);
-  final now = DateTime.now();
-  final todayKey = DateTime(now.year, now.month, now.day);
-  const targetDays = 365;
-  final startDate = todayKey.subtract(const Duration(days: targetDays - 1));
+  try {
+    final journey = await ref.watch(journeyConfigProvider.future);
+    final streakDays = await ref.watch(streakDaysProvider.future);
 
-  final entries = await dao.getEntriesForRange(startDate, todayKey);
-  final dateMap = {
-    for (final e in entries)
-      DateTime(e.date.year, e.date.month, e.date.day): e,
-  };
+    final totalDays = journey.totalDays;
+    final completedDays = streakDays.where((d) => d.isCompleted).length;
+    final daysLeft = math.max(0, totalDays - completedDays);
+    final percentage = totalDays > 0
+        ? ((completedDays / totalDays) * 100.0).clamp(0.0, 100.0)
+        : 0.0;
 
-  final completedDays = entries.where((e) => e.focusRating != null && e.focusRating! >= 3).length;
-  final daysLeft = math.max(0, targetDays - completedDays);
-  final percentage = ((completedDays / targetDays) * 100.0).clamp(0.0, 100.0);
+    int currentStreak = 0;
+    final now = DateTime.now();
+    final todayKey = DateTime(now.year, now.month, now.day);
 
-  // Current streak counting backwards from today/yesterday.
-  int currentStreak = 0;
-  for (int i = 0; i <= targetDays; i++) {
-    final checkDate = todayKey.subtract(Duration(days: i));
-    final entry = dateMap[checkDate];
-    if (entry != null && entry.focusRating != null && entry.focusRating! >= 3) {
-      currentStreak++;
-    } else if (i == 0) {
-      continue;
-    } else {
-      break;
+    final dateMap = {
+      for (final d in streakDays)
+        DateTime(d.date.year, d.date.month, d.date.day): d,
+    };
+
+    for (int i = 0; i < totalDays; i++) {
+      final checkDate = todayKey.subtract(Duration(days: i));
+      final entry = dateMap[checkDate];
+      if (entry != null && entry.isCompleted) {
+        currentStreak++;
+      } else if (i == 0) {
+        continue;
+      } else {
+        break;
+      }
     }
+
+    final last7Days = <bool>[
+      for (int i = 6; i >= 0; i--)
+        dateMap[todayKey.subtract(Duration(days: i))]?.isCompleted ?? false,
+    ];
+
+    return StreakWidgetData(
+      habitName: journey.label,
+      currentStreak: currentStreak,
+      targetDays: totalDays,
+      daysLeft: daysLeft,
+      percentage: percentage,
+      last7Days: last7Days,
+      accentColorHex: AnchorTheme.accent.toHex(),
+    );
+  } catch (e, stack) {
+    debugPrint('Widget streak preview error: $e\n$stack');
+    return const StreakWidgetData(
+      habitName: 'Focus Goal',
+      currentStreak: 12,
+      targetDays: 365,
+      daysLeft: 353,
+      percentage: 3.2,
+      last7Days: [true, true, true, false, true, true, false],
+      accentColorHex: '#C6F52C',
+    );
   }
+});
 
-  final last7Days = <bool>[
-    for (int i = 6; i >= 0; i--)
-      dateMap[todayKey.subtract(Duration(days: i))]?.focusRating != null &&
-          dateMap[todayKey.subtract(Duration(days: i))]!.focusRating! >= 3,
+/// Static sample tasks for the tasks widget preview.
+final _widgetTasksPreviewProvider = Provider<List<TaskWidgetData>>((ref) {
+  return const [
+    TaskWidgetData(
+      id: 'sample_1',
+      title: 'Review morning brief',
+      isCompleted: true,
+      category: 'Productivity',
+    ),
+    TaskWidgetData(
+      id: 'sample_2',
+      title: 'Deep work session',
+      isCompleted: false,
+      category: 'Focus',
+    ),
+    TaskWidgetData(
+      id: 'sample_3',
+      title: 'Evening journal entry',
+      isCompleted: false,
+      category: 'Wellness',
+    ),
   ];
-
-  return StreakWidgetData(
-    habitName: settings.independenceLabel ?? 'Focus Goal',
-    currentStreak: currentStreak,
-    targetDays: targetDays,
-    daysLeft: daysLeft,
-    percentage: percentage,
-    last7Days: last7Days,
-    accentColorHex: AnchorTheme.accent.toHex(),
-  );
 });
 
 /// Home screen widgets gallery — preview and pin streak/tasks widgets.
@@ -107,7 +140,7 @@ class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
   @override
   Widget build(BuildContext context) {
     final streakAsync = ref.watch(_widgetStreakPreviewProvider);
-    final tasksAsync = ref.watch(activeTasksProvider);
+    final tasks = ref.watch(_widgetTasksPreviewProvider);
 
     return Scaffold(
       backgroundColor: AnchorTheme.backgroundDeep,
@@ -137,7 +170,7 @@ class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
                 ],
               ),
             ),
-            Container(height: 1, color: Colors.white.withOpacity(0.08)),
+            Container(height: 1, color: Colors.white.withValues(alpha: 0.08)),
             // Content
             Expanded(
               child: SingleChildScrollView(
@@ -172,22 +205,7 @@ class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
                     _buildWidgetCard(
                       title: 'Tasks Widget',
                       description: "See today's active tasks at a glance without opening the app.",
-                      preview: tasksAsync.when(
-                        data: (tasks) {
-                          final taskList = tasks
-                              .take(3)
-                              .map((t) => TaskWidgetData(
-                                    id: t.id,
-                                    title: t.title,
-                                    isCompleted: t.isCompleted,
-                                    category: t.label ?? 'General',
-                                  ))
-                              .toList();
-                          return _TasksWidgetPreview(tasks: taskList);
-                        },
-                        loading: () => const _PreviewLoading(),
-                        error: (_, _) => const _PreviewError(),
-                      ),
+                      preview: _TasksWidgetPreview(tasks: tasks),
                       buttonText: 'Pin Tasks Widget',
                       buttonIcon: Icons.add_to_home_screen,
                       isLoading: _pinningTasks,

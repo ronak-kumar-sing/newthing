@@ -4,7 +4,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:drift/drift.dart' show Value;
 import '../../core/design/anchor_theme.dart';
-import '../../core/utils/date_extensions.dart';
 import '../../core/utils/task_extensions.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../data/local/database.dart';
@@ -16,13 +15,12 @@ import '../../providers/progress_provider.dart';
 import '../../providers/api_provider.dart';
 import '../../data/remote/weather_api.dart';
 import '../../core/widgets/anchor_background.dart';
-import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/widgets/skeleton_loader.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/router/app_router.dart';
 import '../english/english_provider.dart';
 import '../english/english_card_widget.dart';
 import '../english/english_test_screen.dart';
-import '../independence_clock/wallpaper_screen.dart';
 import '../independence_clock/widgets_screen.dart';
 
 /// Weather state provider.
@@ -75,7 +73,7 @@ final morningBriefingProvider = FutureProvider<String?>((ref) async {
   );
   final weeklyStudyStr = '${studyProgress.currentWeekTotal} / ${studyProgress.weeklyTarget} hours';
 
-  final taskTitles = topTasks.take(3).map((t) => t.title).toList();
+  final taskTitles = topTasks.map((t) => t.title).toList();
 
   final gemini = ref.read(geminiApiProvider);
   if (!gemini.isConfigured) {
@@ -124,84 +122,100 @@ class MorningBriefScreen extends ConsumerWidget {
           children: [
             _buildHeader(context, name),
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                child: Column(
-                  children: [
-                    // Countdown Card
-                    FadeSlideIn(
-                      delaySeconds: 0.05,
-                      child: _CountdownCard(
-                        daysRemaining: daysRemainingAsync.valueOrNull,
-                        label: settings?.independenceLabel ?? 'Target Date',
+              child: RefreshIndicator(
+                color: AnchorTheme.accent,
+                backgroundColor: AnchorTheme.cardBg,
+                onRefresh: () async {
+                  ref.invalidate(topTasksProvider);
+                  ref.invalidate(morningBriefingProvider);
+                  ref.invalidate(weatherProvider);
+                  ref.invalidate(daysRemainingProvider);
+                  final settings = await ref.read(settingsProvider.future);
+                  await ref.read(englishProvider.notifier).loadTodayWords(
+                        geminiApiKey: settings.geminiApiKey,
+                        geminiModel: settings.geminiModel,
+                      );
+                },
+                child: SingleChildScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                  child: Column(
+                    children: [
+                      // Countdown Card
+                      FadeSlideIn(
+                        delaySeconds: 0.05,
+                        child: _CountdownCard(
+                          daysRemaining: daysRemainingAsync.valueOrNull,
+                          label: settings?.independenceLabel ?? 'Target Date',
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: AnchorTheme.stackGap),
+                      const SizedBox(height: AnchorTheme.stackGap),
 
-                    // Tasks Card
-                    FadeSlideIn(
-                      delaySeconds: 0.1,
-                      child: _TasksCard(
-                        tasks: topTasksAsync.valueOrNull ?? [],
+                      // Tasks Card
+                      FadeSlideIn(
+                        delaySeconds: 0.1,
+                        child: _TasksCard(
+                          tasks: topTasksAsync.valueOrNull ?? [],
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: AnchorTheme.stackGap),
+                      const SizedBox(height: AnchorTheme.stackGap),
 
-                    // AI Coach Card
-                    FadeSlideIn(
-                      delaySeconds: 0.15,
-                      child: const _AICoachCard(),
-                    ),
-                    const SizedBox(height: AnchorTheme.stackGap),
-
-                    // Weather & Check-In Row
-                    FadeSlideIn(
-                      delaySeconds: 0.2,
-                      child: Row(
-                        children: [
-                          Expanded(child: const _WeatherCard()),
-                          const SizedBox(width: 16),
-                          Expanded(child: const _CheckInCard()),
-                        ],
+                      // AI Coach Card
+                      FadeSlideIn(
+                        delaySeconds: 0.15,
+                        child: const _AICoachCard(),
                       ),
-                    ),
-                    const SizedBox(height: AnchorTheme.stackGap),
+                      const SizedBox(height: AnchorTheme.stackGap),
 
-                    // English Word Of The Day Block
-                    Consumer(
-                      builder: (context, ref, _) {
-                        final englishState = ref.watch(englishProvider);
-                        if (!englishState.hasWords) {
-                          return const SizedBox();
-                        }
-                        return FadeSlideIn(
-                          delaySeconds: 0.25,
-                          child: Padding(
-                            padding: const EdgeInsets.only(bottom: AnchorTheme.stackGap),
-                            child: WordOfTheDayCard(
-                              word: englishState.words.first,
-                              testTaken: englishState.testTaken,
-                              testScore: englishState.testScore,
-                              onSeeAll: () {
-                                // TODO: Optional list view
-                              },
-                              onStartTest: () {
-                                Navigator.of(context).push(MaterialPageRoute(
-                                  builder: (_) => EnglishTestScreen(words: englishState.words),
-                                ));
-                              },
+                      // Weather & Check-In Row
+                      FadeSlideIn(
+                        delaySeconds: 0.2,
+                        child: Row(
+                          children: [
+                            Expanded(child: const _WeatherCard()),
+                            const SizedBox(width: 16),
+                            Expanded(child: const _CheckInCard()),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AnchorTheme.stackGap),
+
+                      // English Word Of The Day Block
+                      Consumer(
+                        builder: (context, ref, _) {
+                          final englishState = ref.watch(englishProvider);
+                          if (!englishState.hasWords) {
+                            return const SizedBox();
+                          }
+                          return FadeSlideIn(
+                            delaySeconds: 0.25,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: AnchorTheme.stackGap),
+                              child: WordOfTheDayCard(
+                                word: englishState.words.first,
+                                testTaken: englishState.testTaken,
+                                testScore: englishState.testScore,
+                                onSeeAll: () {
+                                  // TODO: Optional list view
+                                },
+                                onStartTest: () {
+                                  Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (_) => EnglishTestScreen(words: englishState.words),
+                                  ));
+                                },
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                    ),
+                          );
+                        },
+                      ),
 
-                    // Daily Intention Block
-                    FadeSlideIn(
-                      delaySeconds: 0.3,
-                      child: const _IntentionCard(),
-                    ),
-                  ],
+                      // Daily Intention Block
+                      FadeSlideIn(
+                        delaySeconds: 0.3,
+                        child: const _IntentionCard(),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -335,24 +349,20 @@ class _CountdownCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = daysRemaining ?? 0;
-    final progress = days > 0 ? (1.0 - (days / 365.0).clamp(0.0, 1.0)) : 0.0;
+    final progress = days > 0 ? (1.0 - (days / 365.0)).clamp(0.0, 1.0) : 0.0;
     final currentDay = (365 - days).clamp(1, 365);
 
-    return Container(
+    return CleanCard(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AnchorTheme.cardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
-        gradient: LinearGradient(
-          colors: [
-            AnchorTheme.accent.withOpacity(0.04),
-            Colors.transparent,
-          ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+      gradient: LinearGradient(
+        colors: [
+          AnchorTheme.accent.withValues(alpha: 0.04),
+          Colors.transparent,
+        ],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
       ),
+      onTap: () => context.go(Routes.independenceClock),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -400,21 +410,11 @@ class _CountdownCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 6),
-                  Container(
+                  SizedBox(
                     width: 96,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF2A2A2A),
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                    alignment: Alignment.centerLeft,
-                    child: Container(
-                      width: 96 * progress,
+                    child: AnchorProgressBar(
+                      progress: progress,
                       height: 6,
-                      decoration: BoxDecoration(
-                        color: AnchorTheme.accent,
-                        borderRadius: BorderRadius.circular(3),
-                      ),
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -473,26 +473,14 @@ class _TasksCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: AnchorTheme.cardBg,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
-      ),
+    return CleanCard(
+      onTap: () => context.go(Routes.taskCenter),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Text(
-                "Today's Focus",
-                style: GoogleFonts.inter(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                ),
-              ),
+              const SectionHeader(label: "Today's Focus"),
               const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -557,7 +545,7 @@ class _MiniTask extends StatelessWidget {
       dotColor = AnchorTheme.statusRed;
       dotShadow = [
         BoxShadow(
-          color: AnchorTheme.statusRed.withOpacity(0.4),
+          color: AnchorTheme.statusRed.withValues(alpha: 0.4),
           blurRadius: 8,
           spreadRadius: 1,
         ),
@@ -607,25 +595,7 @@ class _MiniTask extends StatelessWidget {
                   ),
                   if (task.isOverdue) ...[
                     const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                      decoration: BoxDecoration(
-                        color: AnchorTheme.statusRed.withOpacity(0.1),
-                        border: Border.all(
-                          color: AnchorTheme.statusRed.withOpacity(0.2),
-                          width: 1,
-                        ),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        'OVERDUE',
-                        style: GoogleFonts.inter(
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
-                          color: AnchorTheme.statusRed,
-                        ),
-                      ),
-                    ),
+                    const StatusPill(label: 'OVERDUE', color: AnchorTheme.statusRed),
                   ],
                 ],
               ),
@@ -688,13 +658,7 @@ class _AICoachCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final briefingAsync = ref.watch(morningBriefingProvider);
 
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: const Color(0xFF121212),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: AnchorTheme.cardBorder, width: 1),
-      ),
+    return CleanCard(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -720,12 +684,8 @@ class _AICoachCard extends ConsumerWidget {
                     ),
                   ),
                   loading: () => const SizedBox(
-                    height: 20,
-                    width: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
-                    ),
+                    height: 60,
+                    child: AnchorSkeletonText(lines: 3, width: double.infinity),
                   ),
                   error: (e, s) => Text(
                     '"Focus on your top focus tasks and maintain your streak today."',
@@ -760,6 +720,31 @@ class _AICoachCard extends ConsumerWidget {
 class _WeatherCard extends ConsumerWidget {
   const _WeatherCard();
 
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weatherAsync = ref.watch(weatherProvider);
+    final settingsAsync = ref.watch(settingsProvider);
+    final city = settingsAsync.valueOrNull?.weatherCity ?? 'Ludhiana';
+
+    return AspectRatio(
+      aspectRatio: 1.0,
+      child: CleanCard(
+        child: weatherAsync.when(
+          data: (data) => _WeatherContent(data: data, city: city),
+          loading: () => const AnchorSkeletonCard(),
+          error: (e, s) => _WeatherContent(data: null, city: city),
+        ),
+      ),
+    );
+  }
+}
+
+class _WeatherContent extends StatelessWidget {
+  final WeatherData? data;
+  final String city;
+
+  const _WeatherContent({this.data, required this.city});
+
   IconData _getWeatherIcon(int code) {
     if (code == 0) return Icons.wb_sunny_rounded;
     if (code <= 3) return Icons.cloud_queue_rounded;
@@ -773,123 +758,53 @@ class _WeatherCard extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final weatherAsync = ref.watch(weatherProvider);
-    final settingsAsync = ref.watch(settingsProvider);
-    final city = settingsAsync.valueOrNull?.weatherCity ?? 'Ludhiana';
-
-    return AspectRatio(
-      aspectRatio: 1.0,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AnchorTheme.cardBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AnchorTheme.cardBorder, width: 1),
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Icon(
+          data != null ? _getWeatherIcon(data!.weatherCode) : Icons.wb_sunny_rounded,
+          size: 28,
+          color: AnchorTheme.accent,
         ),
-        child: Column(
+        Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            weatherAsync.when(
-              data: (data) => Icon(
-                data != null ? _getWeatherIcon(data.weatherCode) : Icons.wb_sunny_rounded,
-                size: 28,
-                color: AnchorTheme.accent,
-              ),
-              loading: () => const SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation(AnchorTheme.accent),
-                ),
-              ),
-              error: (e, s) => const Icon(
-                Icons.wb_sunny_rounded,
-                size: 28,
-                color: AnchorTheme.accent,
+            Text(
+              data != null ? '${data!.temperature.toStringAsFixed(0)}°' : '33°',
+              style: GoogleFonts.inter(
+                fontSize: 40,
+                fontWeight: FontWeight.w900,
+                color: Colors.white,
+                height: 1.0,
               ),
             ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                weatherAsync.when(
-                  data: (data) => Text(
-                    data != null ? '${data.temperature.toStringAsFixed(0)}°' : '33°',
-                    style: GoogleFonts.inter(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.0,
-                    ),
-                  ),
-                  loading: () => Text(
-                    '33°',
-                    style: GoogleFonts.inter(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.0,
-                    ),
-                  ),
-                  error: (e, s) => Text(
-                    '33°',
-                    style: GoogleFonts.inter(
-                      fontSize: 40,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.white,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  city.isNotEmpty ? city : 'Ludhiana',
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: AnchorTheme.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 2),
-                weatherAsync.when(
-                  data: (data) => Text(
-                    data != null ? data.description.toUpperCase() : 'PARTLY CLOUDY',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: AnchorTheme.textMuted,
-                    ),
-                  ),
-                  loading: () => Text(
-                    'PARTLY CLOUDY',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: AnchorTheme.textMuted,
-                    ),
-                  ),
-                  error: (e, s) => Text(
-                    'PARTLY CLOUDY',
-                    style: GoogleFonts.inter(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 1.0,
-                      color: AnchorTheme.textMuted,
-                    ),
-                  ),
-                ),
-              ],
+            const SizedBox(height: 2),
+            Text(
+              city.isNotEmpty ? city : 'Ludhiana',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: AnchorTheme.textSecondary,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 2),
+            Text(
+              data != null ? data!.description.toUpperCase() : 'PARTLY CLOUDY',
+              style: GoogleFonts.inter(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.0,
+                color: AnchorTheme.textMuted,
+              ),
             ),
           ],
         ),
-      ),
+      ],
     );
   }
 }
@@ -964,26 +879,12 @@ class _CheckInCardState extends ConsumerState<_CheckInCard> {
   Widget build(BuildContext context) {
     return AspectRatio(
       aspectRatio: 1.0,
-      child: Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: AnchorTheme.cardBg,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: AnchorTheme.cardBorder, width: 1),
-        ),
+      child: CleanCard(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(
-              'CHECK-IN',
-              style: GoogleFonts.inter(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.5,
-                color: AnchorTheme.textMuted,
-              ),
-            ),
+            const SectionHeader(label: 'CHECK-IN'),
             Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1151,51 +1052,31 @@ class _IntentionCardState extends ConsumerState<_IntentionCard> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFF0E0E0E),
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
-        border: Border.all(color: const Color(0xFF252525), width: 1),
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: IntrinsicHeight(
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Container(
-              width: 3,
-              color: AnchorTheme.accent,
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: TextField(
-                  controller: _ctrl,
-                  focusNode: _focusNode,
-                  onSubmitted: (_) => _save(),
-                  style: GoogleFonts.inter(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                  decoration: InputDecoration(
-                    hintText: "Set today's intention...",
-                    hintStyle: GoogleFonts.inter(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: const Color(0xFF666666),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: EdgeInsets.zero,
-                    isDense: true,
-                  ),
-                  maxLines: 1,
-                  textInputAction: TextInputAction.done,
-                ),
-              ),
-            ),
-          ],
+    return AccentCard(
+      borderRadius: 12,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: TextField(
+        controller: _ctrl,
+        focusNode: _focusNode,
+        onSubmitted: (_) => _save(),
+        style: GoogleFonts.inter(
+          fontSize: 14,
+          fontWeight: FontWeight.w500,
+          color: Colors.white,
         ),
+        decoration: InputDecoration(
+          hintText: "Set today's intention...",
+          hintStyle: GoogleFonts.inter(
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            color: const Color(0xFF666666),
+          ),
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          isDense: true,
+        ),
+        maxLines: 1,
+        textInputAction: TextInputAction.done,
       ),
     );
   }

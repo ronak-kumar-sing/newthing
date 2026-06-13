@@ -3,12 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/journey_config_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'package:flutter_animate/flutter_animate.dart';
-import '../../features/streak/models/streak_day.dart';
 import '../../features/streak/widgets/streak_clock_screen.dart';
 import 'wallpaper_screen.dart';
 import 'widgets_screen.dart';
@@ -42,38 +43,6 @@ final monthlyCheckInsProvider = FutureProvider.family<List<DateTime>, DateTime>(
   return entries.map((e) => e.date).toList();
 });
 
-/// Checked-in dates for the last 365 days mapped to StreakDay.
-final streakDaysProvider = FutureProvider<List<StreakDay>>((ref) async {
-  final dao = ref.watch(journalDaoProvider);
-  final now = DateTime.now();
-  final startDate = DateTime(now.year, now.month, now.day).subtract(const Duration(days: 365));
-  final endDate = DateTime(now.year, now.month, now.day);
-
-  final entries = await dao.getEntriesForRange(startDate, endDate);
-  
-  final entryMap = {
-    for (var e in entries)
-      DateTime(e.date.year, e.date.month, e.date.day): e
-  };
-
-  final List<StreakDay> list = [];
-  for (int i = 0; i <= 365; i++) {
-    final date = startDate.add(Duration(days: i));
-    final dateKey = DateTime(date.year, date.month, date.day);
-    final entry = entryMap[dateKey];
-    final isCompleted = entry != null && entry.focusRating != null && entry.focusRating! >= 3;
-    final double? intensity = entry?.focusRating != null 
-        ? (entry!.focusRating! / 5.0).clamp(0.0, 1.0) 
-        : null;
-    list.add(StreakDay(
-      date: date,
-      isCompleted: isCompleted,
-      intensity: intensity,
-    ));
-  }
-  return list;
-});
-
 class IndependenceClockScreen extends ConsumerStatefulWidget {
   const IndependenceClockScreen({super.key});
 
@@ -82,12 +51,12 @@ class IndependenceClockScreen extends ConsumerStatefulWidget {
 }
 
 class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScreen> {
-  Future<void> _pickDate(BuildContext context, DateTime? current) async {
+  Future<void> _pickDate(BuildContext context, DateTime? current, {bool isStartDate = false}) async {
     final picked = await showDatePicker(
       context: context,
-      initialDate: current ?? DateTime.now().add(const Duration(days: 365)),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 10)),
+      initialDate: current ?? DateTime.now(),
+      firstDate: isStartDate ? DateTime(2000) : DateTime.now(),
+      lastDate: isStartDate ? DateTime.now() : DateTime.now().add(const Duration(days: 365 * 10)),
       builder: (context, child) => Theme(
         data: Theme.of(context).copyWith(
           colorScheme: const ColorScheme.dark(
@@ -100,32 +69,53 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
         child: child!,
       ),
     );
-    if (picked != null) {
-      await ref.read(settingsDaoProvider).updateTargetDate(picked);
-      ref.invalidate(settingsProvider);
-      ref.invalidate(daysRemainingProvider);
-      ref.invalidate(independenceDateProvider);
+    if (picked == null) return;
+
+    final dao = ref.read(settingsDaoProvider);
+    if (isStartDate) {
+      await dao.setIndependenceStartDate(picked);
+    } else {
+      await dao.updateTargetDate(picked);
+    }
+
+    // Sync dates/label to SharedPreferences for the background wallpaper task.
+    await _syncWallpaperPrefs();
+
+    ref.invalidate(settingsProvider);
+    ref.invalidate(daysRemainingProvider);
+    ref.invalidate(independenceDateProvider);
+    ref.invalidate(journeyConfigProvider);
+  }
+
+  Future<void> _syncWallpaperPrefs() async {
+    try {
+      final settings = await ref.read(settingsDaoProvider).getSettings();
+      final prefs = await SharedPreferences.getInstance();
+      if (settings.independenceDate != null) {
+        await prefs.setString('anchor_target_date', settings.independenceDate!.toIso8601String());
+      }
+      if (settings.independenceStartDate != null) {
+        await prefs.setString('anchor_start_date', settings.independenceStartDate!.toIso8601String());
+      }
+      if (settings.independenceLabel != null) {
+        await prefs.setString('anchor_goal_title', settings.independenceLabel!);
+      }
+    } catch (e) {
+      debugPrint('Failed to sync wallpaper prefs: $e');
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final settingsAsync = ref.watch(settingsProvider);
-    final settings = settingsAsync.valueOrNull;
-    final goalDate = settings?.independenceDate;
-    final label = settings?.independenceLabel ?? 'INDEPENDENCE CLOCK';
+    final journeyAsync = ref.watch(journeyConfigProvider);
+    final journey = journeyAsync.valueOrNull ?? const JourneyConfig();
+    final goalDate = journey.goalDate;
+    final startDate = journey.startDate;
+    final label = journey.label;
 
-    final now = DateTime.now();
-    final DateTime? startDate = goalDate?.subtract(const Duration(days: 365));
-    final int totalDays = (startDate != null && goalDate != null)
-        ? goalDate.difference(startDate).inDays
-        : 365;
-
-    Duration? remaining = goalDate?.difference(now);
-    final daysLeft = remaining?.inDays ?? 0;
-    final progress = (totalDays > 0 && goalDate != null)
-        ? (1.0 - (daysLeft / totalDays).clamp(0.0, 1.0))
-        : (goalDate != null ? 1.0 : 0.0);
+    final daysLeft = journey.daysRemaining;
+    final totalDays = journey.totalDays;
+    final progress = journey.progress;
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
@@ -133,7 +123,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
         child: Column(
             children: [
               // Sticky Top Bar Header
-              _buildHeader(context, goalDate),
+              _buildHeader(context, goalDate, startDate),
               // Main content
               Expanded(
                 child: SingleChildScrollView(
@@ -146,6 +136,14 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                         child: _buildHeroCard(daysLeft, goalDate, startDate, label, progress, totalDays),
                       ),
                       const SizedBox(height: 24.0),
+
+                      if (!journey.hasStartDate) ...[
+                        FadeSlideIn(
+                          delaySeconds: 0.08,
+                          child: _buildStartDatePrompt(),
+                        ),
+                        const SizedBox(height: 24.0),
+                      ],
 
                       // Streak Tracker
                       FadeSlideIn(
@@ -164,7 +162,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                       // Streak Dot Grid Matrix
                       FadeSlideIn(
                         delaySeconds: 0.2,
-                        child: _buildStreakClockCard(),
+                        child: _buildStreakClockCard(label),
                       ),
                     ],
                   ),
@@ -176,10 +174,13 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     );
   }
 
-  Widget _buildHeader(BuildContext context, DateTime? goalDate) {
+  Widget _buildHeader(BuildContext context, DateTime? goalDate, DateTime? startDate) {
     final dateStr = goalDate != null
         ? DateFormat('MMM d, yyyy').format(goalDate)
         : 'Select Target';
+    final startStr = startDate != null
+        ? DateFormat('MMM d, yyyy').format(startDate)
+        : 'Set Start';
 
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
@@ -213,31 +214,68 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
           Row(
             children: [
               GestureDetector(
-                onTap: () => _pickDate(context, goalDate),
+                onTap: () => _pickDate(context, startDate, isStartDate: true),
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: startDate != null
+                        ? Colors.white.withValues(alpha: 0.05)
+                        : AnchorTheme.accent.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(999),
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: startDate != null
+                          ? Colors.white.withValues(alpha: 0.1)
+                          : AnchorTheme.accent.withValues(alpha: 0.4),
                       width: 1,
                     ),
                   ),
                   child: Row(
                     children: [
                       Text(
-                        dateStr,
+                        'Start: $startStr',
                         style: GoogleFonts.inter(
-                          fontSize: 12,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: startDate != null ? AnchorTheme.textSecondary : AnchorTheme.accent,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Icon(
+                        Icons.calendar_today_rounded,
+                        size: 12,
+                        color: startDate != null ? AnchorTheme.textSecondary : AnchorTheme.accent,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => _pickDate(context, goalDate),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.05),
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Text(
+                        'Goal: $dateStr',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
                           fontWeight: FontWeight.w600,
                           color: AnchorTheme.textSecondary,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      const SizedBox(width: 6),
                       const Icon(
                         Icons.calendar_today_rounded,
-                        size: 14,
+                        size: 12,
                         color: AnchorTheme.textSecondary,
                       ),
                     ],
@@ -256,10 +294,10 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       width: 1,
                     ),
                   ),
@@ -282,10 +320,10 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.05),
+                    color: Colors.white.withValues(alpha: 0.05),
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
+                      color: Colors.white.withValues(alpha: 0.1),
                       width: 1,
                     ),
                   ),
@@ -298,7 +336,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
+                icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withValues(alpha: 0.50)),
                 onPressed: () => context.push('/settings'),
               ),
             ],
@@ -396,6 +434,59 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStartDatePrompt() {
+    return CleanCard(
+      onTap: () => _pickDate(context, null, isStartDate: true),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AnchorTheme.accent.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(
+              Icons.play_arrow_rounded,
+              color: AnchorTheme.accent,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Set your journey start date',
+                  style: GoogleFonts.inter(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Make your streak and countdown responsive to your actual timeline.',
+                  style: GoogleFonts.inter(
+                    fontSize: 12,
+                    color: AnchorTheme.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const Icon(
+            Icons.chevron_right_rounded,
+            color: AnchorTheme.textMuted,
+            size: 20,
           ),
         ],
       ),
@@ -568,11 +659,8 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     );
   }
 
-  Widget _buildStreakClockCard() {
+  Widget _buildStreakClockCard(String label) {
     final streakDaysAsync = ref.watch(streakDaysProvider);
-    final settingsAsync = ref.watch(settingsProvider);
-    final settings = settingsAsync.valueOrNull;
-    final label = settings?.independenceLabel ?? 'Focus Goals';
 
     return Container(
       width: double.infinity,
@@ -587,7 +675,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
           return StreakClockScreen(
             habitName: label,
             streakData: streakData,
-            targetDays: 365,
+            targetDays: streakData.length,
             accentColor: AnchorTheme.accent,
           );
         },

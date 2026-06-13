@@ -10,6 +10,7 @@ import 'tables/screen_time_table.dart';
 import 'tables/chat_message_table.dart';
 import 'tables/whatsapp_digest_table.dart';
 import 'tables/whatsapp_group_table.dart';
+import 'tables/whatsapp_raw_message_table.dart';
 import 'tables/placement_table.dart';
 
 part 'database.g.dart';
@@ -25,13 +26,14 @@ part 'database.g.dart';
   ChatMessages,
   WhatsappDigests,
   WhatsappGroups,
+  WhatsappRawMessages,
   Placements,
 ])
 class AnchorDatabase extends _$AnchorDatabase {
   AnchorDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -50,6 +52,14 @@ class AnchorDatabase extends _$AnchorDatabase {
           if (from < 3) {
             // v2 → v3: add Placements table
             await m.createTable(placements);
+          }
+          if (from < 4) {
+            // v3 → v4: add WhatsappRawMessages table for durable message storage
+            await m.createTable(whatsappRawMessages);
+          }
+          if (from < 5) {
+            // v4 → v5: add independenceStartDate to AppSettings
+            await m.addColumn(appSettings, appSettings.independenceStartDate);
           }
         },
       );

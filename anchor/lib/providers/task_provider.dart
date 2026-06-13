@@ -27,7 +27,7 @@ final overdueTasksProvider = FutureProvider<List<Task>>((ref) async {
   return dao.getOverdueTasks();
 });
 
-/// Top 3 tasks for today (for Morning Brief).
+/// Top 10 tasks for today (for Morning Brief).
 final topTasksProvider = FutureProvider<List<Task>>((ref) async {
   final dao = ref.watch(taskDaoProvider);
   return dao.getTopTasksForToday();

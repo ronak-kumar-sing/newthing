@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as p;
 import 'package:url_launcher/url_launcher.dart';
 
 /// WhatsApp connection status from the Baileys bridge.
@@ -86,13 +88,18 @@ class WhatsappBridgeApi {
   Future<bool> startBridge() async {
     if (_isStarting) return false;
 
-    // Check if bridge is already responding on the port
+    // Check if bridge is already responding on the port.
     if (await _isHealthy()) return true;
+
+    // Verify Node.js is available before trying to spawn.
+    if (!await _isNodeAvailable()) {
+      debugPrint('[WA Bridge] Node.js not found in PATH');
+      return false;
+    }
 
     _isStarting = true;
     try {
-      // Locate the bridge directory relative to the app
-      final scriptPath = _findBridgePath();
+      final scriptPath = await _findBridgePath();
       if (scriptPath == null) {
         debugPrint('[WA Bridge] server.js not found — WhatsApp unavailable');
         return false;
@@ -119,8 +126,8 @@ class WhatsappBridgeApi {
         _nodeProcess = null;
       });
 
-      // Wait for bridge to start accepting connections (max 8 seconds)
-      for (int i = 0; i < 16; i++) {
+      // Wait for bridge to start accepting connections (max 10 seconds).
+      for (int i = 0; i < 20; i++) {
         await Future.delayed(const Duration(milliseconds: 500));
         if (await _isHealthy()) {
           debugPrint('[WA Bridge] Bridge is ready');
@@ -243,22 +250,50 @@ class WhatsappBridgeApi {
     }
   }
 
-  /// Find the whatsapp-bridge directory relative to this executable.
-  String? _findBridgePath() {
-    // Try paths relative to the working directory
+  /// Find the whatsapp-bridge directory relative to this executable or the
+  /// application support directory. Returns the absolute path to the directory
+  /// containing server.js, or null if not found.
+  Future<String?> _findBridgePath() async {
     final candidates = [
       'whatsapp-bridge',
       '../whatsapp-bridge',
       '../../whatsapp-bridge',
     ];
+
     for (final candidate in candidates) {
       final dir = Directory(candidate);
       final serverFile = File('$candidate/server.js');
-      if (dir.existsSync() && serverFile.existsSync()) {
+      if (await dir.exists() && await serverFile.exists()) {
         return dir.absolute.path;
       }
     }
+
+    // Also check the application support directory (useful for packaged builds).
+    try {
+      final appSupport = await getApplicationSupportDirectory();
+      final bundled = Directory(p.join(appSupport.path, 'whatsapp-bridge'));
+      final bundledServer = File(p.join(bundled.path, 'server.js'));
+      if (await bundled.exists() && await bundledServer.exists()) {
+        return bundled.absolute.path;
+      }
+    } catch (e) {
+      debugPrint('[WA Bridge] Failed to resolve application support dir: $e');
+    }
+
     return null;
+  }
+
+  /// Check whether the `node` executable is available on PATH.
+  Future<bool> _isNodeAvailable() async {
+    try {
+      final result = await Process.run(
+        Platform.isWindows ? 'where' : 'which',
+        ['node'],
+      );
+      return result.exitCode == 0;
+    } catch (_) {
+      return false;
+    }
   }
 
   // ─── Mobile Deeplink Methods ─────────────────────────────────────────────

@@ -132,17 +132,24 @@ class TaskDao extends DatabaseAccessor<AnchorDatabase> with _$TaskDaoMixin {
         .watch();
   }
 
-  /// Get top 3 tasks for today based on priority and due date.
+  /// Number of tasks surfaced on the Morning Brief screen.
+  static const int _morningBriefTaskLimit = 10;
+
+  /// Get top tasks for today based on priority and due date.
   Future<List<Task>> getTopTasksForToday() async {
     final dueToday = await getTasksDueToday();
-    if (dueToday.length >= 3) return dueToday.take(3).toList();
+    if (dueToday.length >= _morningBriefTaskLimit) {
+      return dueToday.take(_morningBriefTaskLimit).toList();
+    }
 
     final overdue = await getOverdueTasks();
     final combined = [...overdue, ...dueToday];
-    if (combined.length >= 3) return combined.take(3).toList();
+    if (combined.length >= _morningBriefTaskLimit) {
+      return combined.take(_morningBriefTaskLimit).toList();
+    }
 
-    final upcoming = await getTasksDueInDays(3);
+    final upcoming = await getTasksDueInDays(7);
     final all = [...combined, ...upcoming];
-    return all.take(3).toList();
+    return all.take(_morningBriefTaskLimit).toList();
   }
 }

@@ -15,6 +15,7 @@ import 'package:file_picker/file_picker.dart';
 
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/glass_card.dart';
+import '../../providers/journey_config_provider.dart';
 import '../../providers/settings_provider.dart';
 import 'wallpaper_canvas.dart';
 
@@ -200,6 +201,12 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
       final file = File('${dir.path}/anchor_wallpaper.png');
       await file.writeAsBytes(bytes);
 
+      // Persist device dimensions so the background task can render at the right size.
+      final size = MediaQuery.of(context).size;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setDouble('anchor_wallpaper_width', size.width);
+      await prefs.setDouble('anchor_wallpaper_height', size.height);
+
       if (!Platform.isAndroid) {
         throw Exception("Setting wallpaper programmatically is only supported on Android. Save the image and apply manually.");
       }
@@ -255,13 +262,25 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider).valueOrNull;
-    if (settings == null) return const Scaffold(backgroundColor: Color(0xFF050505));
+    final journeyAsync = ref.watch(journeyConfigProvider);
+    final journey = journeyAsync.valueOrNull ?? const JourneyConfig();
+    final streakAsync = ref.watch(streakDaysProvider);
+
+    if (journeyAsync.isLoading) {
+      return const Scaffold(backgroundColor: Color(0xFF050505));
+    }
 
     final now = DateTime.now();
-    final endDate = settings.independenceDate;
-    final totalDays = 365;
+    final endDate = journey.goalDate;
+    final startDate = journey.startDate ?? endDate?.subtract(const Duration(days: 365));
+    final totalDays = (endDate != null && startDate != null)
+        ? endDate.difference(startDate).inDays
+        : 365;
     final daysRemaining = endDate != null ? endDate.difference(now).inDays : 365;
+    final completedDays = streakAsync.valueOrNull
+            ?.map((d) => d.isCompleted)
+            .toList() ??
+        List<bool>.generate(totalDays, (i) => false);
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
@@ -320,7 +339,8 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
                       child: WallpaperCanvas(
                         daysRemaining: daysRemaining,
                         totalDays: totalDays,
-                        goalTitle: settings.independenceLabel ?? 'Focus Goals',
+                        completedDays: completedDays,
+                        goalTitle: journey.label,
                         backgroundColor: _bgColor,
                         mode: _mode,
                         imagePath: _imagePath,

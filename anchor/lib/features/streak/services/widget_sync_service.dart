@@ -6,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/anchor_theme.dart';
 import '../../../core/platform/native_bridge.dart';
 import '../../../data/local/database.dart';
-import '../../../modules/independence_clock/independence_clock_screen.dart';
+import '../../../providers/journey_config_provider.dart';
 import '../../../providers/task_provider.dart';
 import '../models/streak_day.dart';
 import '../models/streak_widget_data.dart';
@@ -17,10 +17,12 @@ final widgetSyncProvider = Provider<void>((ref) {
   ref.listen<AsyncValue<List<StreakDay>>>(streakDaysProvider, (prev, next) {
     final days = next.valueOrNull;
     if (days != null && days.isNotEmpty) {
+      final totalDays = days.length;
       final completedDays = days.where((d) => d.isCompleted).length;
-      const targetDays = 365;
-      final daysLeft = math.max(0, targetDays - completedDays);
-      final percentage = ((completedDays / targetDays) * 100.0).clamp(0.0, 100.0);
+      final daysLeft = math.max(0, totalDays - completedDays);
+      final percentage = totalDays > 0
+          ? ((completedDays / totalDays) * 100.0).clamp(0.0, 100.0)
+          : 0.0;
 
       // Calculate current streak
       int currentStreak = 0;
@@ -32,7 +34,7 @@ final widgetSyncProvider = Provider<void>((ref) {
           DateTime(d.date.year, d.date.month, d.date.day): d
       };
 
-      for (int i = 0; i <= 365; i++) {
+      for (int i = 0; i < totalDays; i++) {
         final checkDate = todayKey.subtract(Duration(days: i));
         final day = dateMap[checkDate];
         if (day != null && day.isCompleted) {
@@ -56,7 +58,7 @@ final widgetSyncProvider = Provider<void>((ref) {
       final widgetData = StreakWidgetData(
         habitName: "Focus Goal",
         currentStreak: currentStreak,
-        targetDays: targetDays,
+        targetDays: totalDays,
         daysLeft: daysLeft,
         percentage: percentage,
         last7Days: last7,

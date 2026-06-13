@@ -52,6 +52,19 @@ class SettingsDao extends DatabaseAccessor<AnchorDatabase> with _$SettingsDaoMix
     ));
   }
 
+  /// Set the journey start date.
+  Future<void> setIndependenceStartDate(DateTime date) {
+    return updateSettings(AppSettingsCompanion(
+      independenceStartDate: Value(date),
+    ));
+  }
+
+  /// Get the journey start date, if the user has set one.
+  Future<DateTime?> getIndependenceStartDate() async {
+    final settings = await getSettings();
+    return settings.independenceStartDate;
+  }
+
   /// Update target/independence date immediately.
   Future<void> updateTargetDate(DateTime date) {
     return updateSettings(AppSettingsCompanion(

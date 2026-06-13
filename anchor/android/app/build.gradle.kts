@@ -25,9 +25,9 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("debug")
-            // Disable code shrinking and obfuscation for stability in tests
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // Enable code shrinking and obfuscation for size optimization
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"

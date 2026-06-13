@@ -3,11 +3,12 @@ import 'package:drift/drift.dart';
 import '../database.dart';
 import '../tables/whatsapp_digest_table.dart';
 import '../tables/whatsapp_group_table.dart';
+import '../tables/whatsapp_raw_message_table.dart';
 
 part 'whatsapp_dao.g.dart';
 
-/// Data Access Object for WhatsApp digests and group management.
-@DriftAccessor(tables: [WhatsappDigests, WhatsappGroups])
+/// Data Access Object for WhatsApp digests, groups, and raw messages.
+@DriftAccessor(tables: [WhatsappDigests, WhatsappGroups, WhatsappRawMessages])
 class WhatsappDao extends DatabaseAccessor<AnchorDatabase>
     with _$WhatsappDaoMixin {
   WhatsappDao(super.db);
@@ -124,5 +125,82 @@ class WhatsappDao extends DatabaseAccessor<AnchorDatabase>
         .write(WhatsappGroupsCompanion(
           lastDigestAt: Value(timestamp),
         ));
+  }
+
+  // ─── Raw Messages ──────────────────────────────────────────
+
+  /// Insert or update a raw message. The [id] is a stable dedup key.
+  Future<void> upsertRawMessage(WhatsappRawMessagesCompanion message) {
+    return into(whatsappRawMessages).insertOnConflictUpdate(message);
+  }
+
+  /// Get unprocessed raw messages for a group received on or after [since].
+  Future<List<WhatsappRawMessage>> getUnprocessedMessagesForGroup(
+    String groupName, {
+    DateTime? since,
+  }) {
+    final query = select(whatsappRawMessages)
+      ..where((m) => m.groupName.equals(groupName))
+      ..where((m) => m.isProcessed.equals(false));
+
+    if (since != null) {
+      query.where((m) => m.timestamp.isBiggerOrEqualValue(since));
+    }
+
+    query.orderBy([(m) => OrderingTerm(expression: m.timestamp)]);
+
+    return query.get();
+  }
+
+  /// Mark all raw messages for a group as processed.
+  Future<void> markRawMessagesProcessed(String groupName) {
+    return (update(whatsappRawMessages)
+      ..where((m) => m.groupName.equals(groupName) & m.isProcessed.equals(false)))
+        .write(const WhatsappRawMessagesCompanion(isProcessed: Value(true)));
+  }
+
+  /// Mark specific raw message ids as processed.
+  Future<void> markRawMessageIdsProcessed(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await (update(whatsappRawMessages)
+      ..where((m) => m.id.isIn(ids)))
+        .write(const WhatsappRawMessagesCompanion(isProcessed: Value(true)));
+  }
+
+  /// Delete raw messages older than [days] days.
+  Future<int> cleanupOldRawMessages({int days = 7}) {
+    final cutoff = DateTime.now().subtract(Duration(days: days));
+    return (delete(whatsappRawMessages)
+      ..where((m) => m.timestamp.isSmallerThanValue(cutoff)))
+        .go();
+  }
+
+  /// Count unprocessed raw messages per group (useful for UI badges).
+  Future<Map<String, int>> countUnprocessedMessagesByGroup() async {
+    final rows = await (selectOnly(whatsappRawMessages)
+      ..addColumns([whatsappRawMessages.groupName, whatsappRawMessages.id.count()])
+      ..where(whatsappRawMessages.isProcessed.equals(false))
+      ..groupBy([whatsappRawMessages.groupName]))
+        .get();
+
+    return {
+      for (final row in rows)
+        row.read(whatsappRawMessages.groupName)!: row.read(whatsappRawMessages.id.count())!,
+    };
+  }
+
+  /// Watch unprocessed raw message counts for reactive UI.
+  Stream<Map<String, int>> watchUnprocessedMessageCountsByGroup() {
+    final query = (selectOnly(whatsappRawMessages)
+      ..addColumns([whatsappRawMessages.groupName, whatsappRawMessages.id.count()])
+      ..where(whatsappRawMessages.isProcessed.equals(false))
+      ..groupBy([whatsappRawMessages.groupName]));
+
+    return query.watch().map((rows) {
+      return {
+        for (final row in rows)
+          row.read(whatsappRawMessages.groupName)!: row.read(whatsappRawMessages.id.count())!,
+      };
+    });
   }
 }

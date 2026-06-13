@@ -16,6 +16,7 @@ class CleanCard extends StatelessWidget {
   final double borderRadius;
   final Color? color;
   final Color? borderColor;
+  final Gradient? gradient;
   final VoidCallback? onTap;
 
   const CleanCard({
@@ -25,6 +26,7 @@ class CleanCard extends StatelessWidget {
     this.borderRadius = AnchorTheme.radiusCard,
     this.color,
     this.borderColor,
+    this.gradient,
     this.onTap,
   });
 
@@ -40,6 +42,7 @@ class CleanCard extends StatelessWidget {
           color: borderColor ?? AnchorTheme.cardBorder,
           width: 1,
         ),
+        gradient: gradient,
       ),
       child: child,
     );

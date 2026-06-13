@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -7,22 +8,23 @@ import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
-import 'package:notification_listener_service/notification_listener_service.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../data/local/database.dart';
+import '../../data/remote/gemini_api.dart';
 import '../../data/remote/whatsapp_bridge_api.dart';
 import '../../providers/api_provider.dart';
 import '../../providers/database_provider.dart';
+import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/whatsapp_bridge_provider.dart';
 import '../../providers/task_provider.dart';
+import 'whatsapp_message_source.dart';
 import 'whatsapp_notification_service.dart';
 
 const _uuid = Uuid();
 
-/// WhatsApp Digest — matches Stitch design "WhatsApp Digest"
-/// AI-summarized group chat highlights via Baileys.
+/// WhatsApp Digest — AI-summarized group chat highlights.
 class WhatsappDigestScreen extends ConsumerStatefulWidget {
   const WhatsappDigestScreen({super.key});
 
@@ -34,6 +36,7 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   bool _generatingDigest = false;
+  String? _lastError;
 
   @override
   void initState() {
@@ -44,6 +47,9 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
   @override
   Widget build(BuildContext context) {
     final bridgeAsync = ref.watch(waStatusProvider);
+    final settingsAsync = ref.watch(settingsProvider);
+
+    final enabled = settingsAsync.valueOrNull?.whatsappDigestEnabled ?? true;
 
     return Scaffold(
       backgroundColor: AnchorTheme.background,
@@ -81,24 +87,25 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                           ),
                         ),
                         // Generate button
-                        bridgeAsync.when(
-                          data: (status) => status == WAStatus.connected
-                              ? _generatingDigest
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent),
-                                    )
-                                  : PrimaryButton(
-                                      'Generate',
-                                      _generateDigest,
-                                      height: 38,
-                                      icon: Icons.auto_awesome,
-                                    )
-                              : const SizedBox.shrink(),
-                          loading: () => const SizedBox.shrink(),
-                          error: (_, __) => const SizedBox.shrink(),
-                        ),
+                        if (enabled)
+                          bridgeAsync.when(
+                            data: (status) => status == WAStatus.connected
+                                ? _generatingDigest
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent),
+                                      )
+                                    : PrimaryButton(
+                                        'Generate',
+                                        _generateDigest,
+                                        height: 38,
+                                        icon: Icons.auto_awesome,
+                                      )
+                                : const SizedBox.shrink(),
+                            loading: () => const SizedBox.shrink(),
+                            error: (_, _) => const SizedBox.shrink(),
+                          ),
                         const SizedBox(width: 8),
                         IconButton(
                           icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
@@ -108,7 +115,14 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
                     ),
                     const SizedBox(height: 14),
                     // Connection status banner
-                    _ConnectionBanner(onConnect: _startBridgeAndConnect),
+                    _ConnectionBanner(
+                      onConnect: _startBridgeAndConnect,
+                      onShowQr: _showQrCode,
+                    ),
+                    if (_lastError != null) ...[
+                      const SizedBox(height: 10),
+                      _ErrorPill(message: _lastError!, onDismiss: () => setState(() => _lastError = null)),
+                    ],
                   ],
                 ),
               ),
@@ -147,7 +161,7 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  _TodayTab(onAddToTasks: _addToTasks),
+                  _TodayTab(onAddToTasks: _addToTasks, enabled: enabled),
                   const _HistoryTab(),
                   const _GroupsTab(),
                 ],
@@ -160,20 +174,48 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
   }
 
   Future<void> _startBridgeAndConnect() async {
-    if (kIsWeb || !Platform.isAndroid) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Notification reading is only supported on Android devices.', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
-        backgroundColor: AnchorTheme.statusRed,
-        behavior: SnackBarBehavior.floating,
-      ));
+    setState(() => _lastError = null);
+
+    if (kIsWeb) {
+      setState(() => _lastError = 'WhatsApp Digest is not available on the web.');
       return;
     }
-    final granted = await NotificationListenerService.requestPermission();
-    if (granted) {
-      final dao = ref.read(whatsappDaoProvider);
-      await WhatsappNotificationService.init(dao);
+
+    if (Platform.isAndroid) {
+      final granted = await WhatsappNotificationService.requestPermission();
+      if (granted) {
+        final dao = ref.read(whatsappDaoProvider);
+        await WhatsappNotificationService.init(dao);
+      }
+      ref.invalidate(waStatusProvider);
+      return;
     }
+
+    // Desktop: start the Baileys bridge sidecar.
+    final bridge = ref.read(whatsappBridgeProvider);
+    try {
+      final started = await bridge.startBridge();
+      if (!started) {
+        setState(() => _lastError = 'Could not start WhatsApp bridge. Is Node.js installed and the bridge directory present?');
+      }
+    } catch (e) {
+      setState(() => _lastError = 'Bridge error: $e');
+    }
+
     ref.invalidate(waStatusProvider);
+    ref.invalidate(waQrCodeProvider);
+    ref.invalidate(waGroupsProvider);
+  }
+
+  Future<void> _showQrCode() async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: AnchorTheme.cardBg,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const _QrCodeSheet(),
+    );
   }
 
   Future<void> _generateDigest() async {
@@ -182,56 +224,89 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
 
     if (trackedGroups.isEmpty) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Select groups to track in the Groups tab first.', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
-          backgroundColor: AnchorTheme.textSecondary,
-          behavior: SnackBarBehavior.floating,
-        ));
+        _showSnackBar('Select groups to track in the Groups tab first.', AnchorTheme.textSecondary);
       }
       return;
     }
 
-    setState(() => _generatingDigest = true);
+    setState(() {
+      _generatingDigest = true;
+      _lastError = null;
+    });
 
     final gemini = ref.read(geminiApiProvider);
+    final source = _currentSource();
 
-    for (final group in trackedGroups) {
-      final since = group.lastDigestAt;
-      final messages = await WhatsappNotificationService.getMessages(group.name, since: since);
+    try {
+      for (final group in trackedGroups) {
+        final since = group.lastDigestAt;
+        final messages = await source.fetchMessages(
+          groupName: group.name,
+          groupJid: group.jid,
+          since: since,
+        );
 
-      if (messages.isEmpty) continue;
+        if (messages.isEmpty) continue;
 
-      final formatted = messages.map((m) => '[${m['senderName']}]: ${m['text']}').join('\n');
-      final summary = await gemini.summarizeWhatsappMessages(formatted);
-      if (summary == null) continue;
+        final formatted = messages.map((m) => '[${m.senderName}]: ${m.text}').join('\n');
+        final summary = await _summarizeWithRetry(gemini, formatted);
+        if (summary == null) continue;
 
-      final digestId = _uuid.v4();
-      await dao.insertDigest(WhatsappDigestsCompanion(
-        id: Value(digestId),
-        groupName: Value(group.name),
-        groupJid: Value(group.jid),
-        rawMessages: Value(formatted),
-        summary: Value(summary),
-        digestDate: Value(DateTime.now()),
-      ));
+        final digestId = _uuid.v4();
+        await dao.insertDigest(WhatsappDigestsCompanion(
+          id: Value(digestId),
+          groupName: Value(group.name),
+          groupJid: Value(group.jid),
+          rawMessages: Value(formatted),
+          summary: Value(summary),
+          digestDate: Value(DateTime.now()),
+        ));
 
-      await dao.updateGroupLastDigest(group.jid, DateTime.now());
-      await WhatsappNotificationService.clearMessagesForGroup(group.name);
+        await dao.updateGroupLastDigest(group.jid, DateTime.now());
+        await source.markProcessed(messages);
 
-      final syncService = ref.read(syncServiceProvider);
-      syncService.backupDigest(digestId);
+        final syncService = ref.read(syncServiceProvider);
+        unawaited(syncService.backupDigest(digestId));
+      }
+
+      // Keep the raw-message table from growing unbounded.
+      await dao.cleanupOldRawMessages(days: 7);
+
+      ref.invalidate(todayDigestsProvider);
+      ref.invalidate(recentDigestsProvider);
+      ref.invalidate(unprocessedMessageCountsProvider);
+
+      if (mounted) {
+        _showSnackBar('Digest generated ✓', AnchorTheme.statusGreen);
+      }
+    } catch (e, st) {
+      debugPrint('[WA Digest] Generation failed: $e\n$st');
+      if (mounted) {
+        setState(() => _lastError = 'Failed to generate digest: $e');
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _generatingDigest = false);
+      }
     }
+  }
 
-    setState(() => _generatingDigest = false);
-    ref.invalidate(todayDigestsProvider);
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Digest generated ✓', style: GoogleFonts.inter(fontSize: 13, color: Colors.white)),
-        backgroundColor: AnchorTheme.statusGreen,
-        behavior: SnackBarBehavior.floating,
-      ));
+  WhatsappMessageSource _currentSource() {
+    if (kIsWeb) {
+      throw UnsupportedError('WhatsApp Digest is not available on the web.');
     }
+    if (Platform.isAndroid) {
+      return NotificationMessageSource(ref.read(whatsappDaoProvider));
+    }
+    return BridgeMessageSource(ref.read(whatsappBridgeProvider));
+  }
+
+  Future<String?> _summarizeWithRetry(GeminiApi gemini, String formatted) async {
+    final first = await gemini.summarizeWhatsappMessages(formatted);
+    if (first != null && first.isNotEmpty) return first;
+    // One immediate retry for transient Gemini failures.
+    await Future.delayed(const Duration(seconds: 1));
+    return gemini.summarizeWhatsappMessages(formatted);
   }
 
   Future<void> _addToTasks(String actionText) async {
@@ -247,12 +322,16 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
     ));
     ref.invalidate(activeTasksProvider);
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('Added to Task Center', style: GoogleFonts.inter(fontSize: 13, color: AnchorTheme.background)),
-        backgroundColor: AnchorTheme.accent,
-        behavior: SnackBarBehavior.floating,
-      ));
+      _showSnackBar('Added to Task Center', AnchorTheme.accent, textColor: AnchorTheme.background);
     }
+  }
+
+  void _showSnackBar(String message, Color background, {Color? textColor}) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message, style: GoogleFonts.inter(fontSize: 13, color: textColor ?? Colors.white)),
+      backgroundColor: background,
+      behavior: SnackBarBehavior.floating,
+    ));
   }
 
   @override
@@ -262,28 +341,179 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
   }
 }
 
+// ─── Error Pill ────────────────────────────────────────────────
+
+class _ErrorPill extends StatelessWidget {
+  final String message;
+  final VoidCallback onDismiss;
+
+  const _ErrorPill({required this.message, required this.onDismiss});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AnchorTheme.statusRed.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: AnchorTheme.statusRed.withOpacity(0.25)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.error_outline, size: 15, color: AnchorTheme.statusRed),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              message,
+              style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w500, color: AnchorTheme.statusRed),
+            ),
+          ),
+          GestureDetector(
+            onTap: onDismiss,
+            child: Icon(Icons.close, size: 15, color: AnchorTheme.statusRed),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── QR Code Sheet ─────────────────────────────────────────────
+
+class _QrCodeSheet extends ConsumerWidget {
+  const _QrCodeSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qrAsync = ref.watch(waQrCodeProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AnchorTheme.cardBg,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Scan with WhatsApp',
+              style: GoogleFonts.inter(fontSize: 18, fontWeight: FontWeight.w700, color: AnchorTheme.textPrimary),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Open WhatsApp → Linked Devices → Link a Device',
+              style: GoogleFonts.inter(fontSize: 13, color: AnchorTheme.textMuted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            qrAsync.when(
+              data: (qr) {
+                if (qr == null || qr.isEmpty) {
+                  return Container(
+                    width: 240,
+                    height: 240,
+                    decoration: BoxDecoration(
+                      color: AnchorTheme.cardInset,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Center(
+                      child: Text(
+                        'Waiting for QR code...',
+                        style: GoogleFonts.inter(fontSize: 13, color: AnchorTheme.textMuted),
+                      ),
+                    ),
+                  );
+                }
+                try {
+                  final base64Data = qr.contains(',') ? qr.split(',')[1] : qr;
+                  final bytes = base64Decode(base64Data);
+                  return Container(
+                    width: 240,
+                    height: 240,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.memory(bytes, fit: BoxFit.contain),
+                    ),
+                  );
+                } catch (e) {
+                  return Text('Could not load QR code', style: GoogleFonts.inter(color: AnchorTheme.statusRed));
+                }
+              },
+              loading: () => const SizedBox(
+                width: 240,
+                height: 240,
+                child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent)),
+              ),
+              error: (e, _) => Text('Error: $e', style: GoogleFonts.inter(color: AnchorTheme.statusRed)),
+            ),
+            const SizedBox(height: 24),
+            PrimaryButton('Close', () => Navigator.of(context).pop()),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── Connection Banner ─────────────────────────────────────────
 
 class _ConnectionBanner extends ConsumerWidget {
   final VoidCallback onConnect;
-  const _ConnectionBanner({required this.onConnect});
+  final VoidCallback onShowQr;
+
+  const _ConnectionBanner({required this.onConnect, required this.onShowQr});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final statusAsync = ref.watch(waStatusProvider);
+    final isDesktop = !kIsWeb && !Platform.isAndroid && !Platform.isIOS;
+
     return statusAsync.when(
       data: (status) {
         if (status == WAStatus.connected) {
           return _StatusRow(
             icon: Icons.check_circle,
             color: AnchorTheme.statusGreen,
-            label: 'WhatsApp notification reading active',
+            label: isDesktop
+                ? 'WhatsApp bridge connected'
+                : 'WhatsApp notification reading active',
           );
         }
+
+        if (status == WAStatus.qrPending) {
+          return _StatusRow(
+            icon: Icons.qr_code,
+            color: AnchorTheme.accent,
+            label: 'Scan QR code to connect',
+            trailing: GestureDetector(
+              onTap: onShowQr,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+                decoration: BoxDecoration(
+                  color: AnchorTheme.accent,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  'Show QR',
+                  style: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w600, color: AnchorTheme.background),
+                ),
+              ),
+            ),
+          );
+        }
+
         return _StatusRow(
-          icon: Icons.notifications_off_outlined,
+          icon: isDesktop ? Icons.desktop_windows_outlined : Icons.notifications_off_outlined,
           color: AnchorTheme.textMuted,
-          label: 'WhatsApp notification access required',
+          label: isDesktop
+              ? 'WhatsApp bridge not connected'
+              : 'WhatsApp notification access required',
           trailing: GestureDetector(
             onTap: onConnect,
             child: Container(
@@ -293,7 +523,7 @@ class _ConnectionBanner extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
-                'Grant Access',
+                isDesktop ? 'Start Bridge' : 'Grant Access',
                 style: GoogleFonts.inter(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
@@ -348,13 +578,13 @@ class _StatusRow extends StatelessWidget {
   }
 }
 
-
-
 // ─── Today Tab ─────────────────────────────────────────────────
 
 class _TodayTab extends ConsumerWidget {
   final ValueChanged<String> onAddToTasks;
-  const _TodayTab({required this.onAddToTasks});
+  final bool enabled;
+
+  const _TodayTab({required this.onAddToTasks, required this.enabled});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -362,18 +592,28 @@ class _TodayTab extends ConsumerWidget {
 
     return digestsAsync.when(
       data: (digests) => digests.isEmpty
-          ? const _EmptyState(
+          ? _EmptyState(
               icon: Icons.chat_bubble_outline,
-              title: 'No digests today',
-              subtitle: 'Connect WhatsApp, select groups, and tap Generate',
+              title: enabled ? 'No digests today' : 'WhatsApp Digest disabled',
+              subtitle: enabled
+                  ? 'Connect WhatsApp, select groups, and tap Generate'
+                  : 'Enable WhatsApp Digest in Settings to get started',
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20).copyWith(bottom: 100),
-              itemCount: digests.length,
-              itemBuilder: (context, i) => _DigestCard(
-                digest: digests[i],
-                onAddToTasks: onAddToTasks,
-              ).animate(delay: (i * 100).ms).fade().slideX(begin: 0.1),
+          : RefreshIndicator(
+              color: AnchorTheme.accent,
+              backgroundColor: AnchorTheme.cardBg,
+              onRefresh: () async {
+                ref.invalidate(todayDigestsProvider);
+                ref.invalidate(unprocessedMessageCountsProvider);
+              },
+              child: ListView.builder(
+                padding: const EdgeInsets.all(20).copyWith(bottom: 100),
+                itemCount: digests.length,
+                itemBuilder: (context, i) => _DigestCard(
+                  digest: digests[i],
+                  onAddToTasks: onAddToTasks,
+                ).animate(delay: (i * 100).ms).fade().slideX(begin: 0.1),
+              ),
             ),
       loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent)),
       error: (_, __) => const Center(child: Text('Error loading digests')),
@@ -397,13 +637,18 @@ class _HistoryTab extends ConsumerWidget {
               title: 'No history yet',
               subtitle: 'Past digests will appear here',
             )
-          : ListView.builder(
-              padding: const EdgeInsets.all(20).copyWith(bottom: 100),
-              itemCount: digests.length,
-              itemBuilder: (context, i) => _DigestCard(
-                digest: digests[i],
-                onAddToTasks: (_) {},
-              ).animate(delay: (i * 100).ms).fade().slideX(begin: 0.1),
+          : RefreshIndicator(
+              color: AnchorTheme.accent,
+              backgroundColor: AnchorTheme.cardBg,
+              onRefresh: () async => ref.invalidate(recentDigestsProvider),
+              child: ListView.builder(
+                padding: const EdgeInsets.all(20).copyWith(bottom: 100),
+                itemCount: digests.length,
+                itemBuilder: (context, i) => _DigestCard(
+                  digest: digests[i],
+                  onAddToTasks: (_) {},
+                ).animate(delay: (i * 100).ms).fade().slideX(begin: 0.1),
+              ),
             ),
       loading: () => const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent)),
       error: (_, __) => const Center(child: Text('Error loading history')),
@@ -499,6 +744,7 @@ class _GroupsTab extends ConsumerWidget {
                 onChanged: (val) {
                   ref.read(whatsappDaoProvider).setGroupTracked(jid, tracked: val);
                   ref.invalidate(allLocalGroupsProvider);
+                  ref.invalidate(trackedGroupsProvider);
                 },
                 activeColor: AnchorTheme.accent,
                 activeTrackColor: AnchorTheme.accent.withOpacity(0.3),
@@ -670,3 +916,6 @@ class _EmptyState extends StatelessWidget {
     ).animate().fade();
   }
 }
+
+/// Utility to fire async tasks without awaiting them in a void context.
+void unawaited(Future<void> future) {}
