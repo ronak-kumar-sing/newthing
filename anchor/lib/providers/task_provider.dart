@@ -27,10 +27,35 @@ final overdueTasksProvider = FutureProvider<List<Task>>((ref) async {
   return dao.getOverdueTasks();
 });
 
-/// Top 10 tasks for today (for Morning Brief).
+/// Top 10 tasks for today (for Morning Brief), reactively updated.
 final topTasksProvider = FutureProvider<List<Task>>((ref) async {
-  final dao = ref.watch(taskDaoProvider);
-  return dao.getTopTasksForToday();
+  final activeTasks = await ref.watch(activeTasksProvider.future);
+  final now = DateTime.now();
+  final todayStart = DateTime(now.year, now.month, now.day);
+  final todayEnd = todayStart.add(const Duration(days: 1));
+  final nextWeekEnd = todayStart.add(const Duration(days: 7));
+
+  // Filter tasks in memory:
+  // 1. Overdue tasks: dueDate is before today
+  final overdue = activeTasks.where((t) => t.dueDate != null && t.dueDate!.isBefore(todayStart)).toList();
+
+  // 2. Today's tasks: dueDate is today
+  final dueToday = activeTasks.where((t) => t.dueDate != null && 
+      !t.dueDate!.isBefore(todayStart) && 
+      t.dueDate!.isBefore(todayEnd)).toList();
+
+  // 3. Upcoming tasks: dueDate is in the next 7 days (excluding today)
+  final upcoming = activeTasks.where((t) => t.dueDate != null && 
+      !t.dueDate!.isBefore(todayEnd) && 
+      !t.dueDate!.isAfter(nextWeekEnd)).toList();
+
+  // 4. Other tasks (no due date or due later than 7 days)
+  final otherTasks = activeTasks.where((t) => 
+      t.dueDate == null || 
+      t.dueDate!.isAfter(nextWeekEnd)).toList();
+
+  final combined = [...overdue, ...dueToday, ...upcoming, ...otherTasks];
+  return combined.take(10).toList();
 });
 
 /// Task count by label.

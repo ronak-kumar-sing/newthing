@@ -321,6 +321,9 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
       createdAt: Value(DateTime.now()),
     ));
     ref.invalidate(activeTasksProvider);
+    ref.read(syncServiceProvider).syncTasks().then((_) {
+      ref.invalidate(activeTasksProvider);
+    });
     if (mounted) {
       _showSnackBar('Added to Task Center', AnchorTheme.accent, textColor: AnchorTheme.background);
     }

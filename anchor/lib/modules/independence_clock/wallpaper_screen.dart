@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -117,54 +118,64 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
   }
 
   Future<void> _toggleAutoUpdate(bool enabled) async {
-    if (enabled) {
-      final allowed = await _requestWallpaperPermissions();
-      if (!allowed) return;
-    }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('anchor_wallpaper_auto', enabled);
-    setState(() => _autoUpdate = enabled);
-
-    if (enabled) {
-      // Save all active configurations to SharedPrefs for background task execution
-      await prefs.setInt('anchor_wallpaper_bg_color', _bgColor.value);
-      await prefs.setString('anchor_wallpaper_mode', _mode);
-      await prefs.setString('anchor_wallpaper_image_path', _imagePath);
-      await prefs.setDouble('anchor_wallpaper_grid_scale', _gridScale);
-      await prefs.setDouble('anchor_wallpaper_overlay_opacity', _overlayOpacity);
-      await prefs.setString('anchor_wallpaper_text_alignment', _textAlignment);
-      await prefs.setString('anchor_wallpaper_target', _targetScreen);
-
-      final now = DateTime.now();
-      final midnight = DateTime(now.year, now.month, now.day + 1, 0, 2, 0);
-      final delay = midnight.difference(now);
-
-      if (Platform.isAndroid) {
-        await wm.Workmanager().registerPeriodicTask(
-          "anchor_wallpaper_midnight",
-          "applyWallpaper",
-          frequency: const Duration(hours: 24),
-          initialDelay: delay,
-          existingWorkPolicy: wm.ExistingPeriodicWorkPolicy.update,
-          constraints: wm.Constraints(networkType: wm.NetworkType.notRequired),
-        );
+    try {
+      if (enabled) {
+        final allowed = await _requestWallpaperPermissions();
+        if (!allowed) return;
       }
 
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('anchor_wallpaper_auto', enabled);
+      setState(() => _autoUpdate = enabled);
+
+      if (enabled) {
+        // Save all active configurations to SharedPrefs for background task execution
+        await prefs.setInt('anchor_wallpaper_bg_color', _bgColor.value);
+        await prefs.setString('anchor_wallpaper_mode', _mode);
+        await prefs.setString('anchor_wallpaper_image_path', _imagePath);
+        await prefs.setDouble('anchor_wallpaper_grid_scale', _gridScale);
+        await prefs.setDouble('anchor_wallpaper_overlay_opacity', _overlayOpacity);
+        await prefs.setString('anchor_wallpaper_text_alignment', _textAlignment);
+        await prefs.setString('anchor_wallpaper_target', _targetScreen);
+
+        final now = DateTime.now();
+        final midnight = DateTime(now.year, now.month, now.day + 1, 0, 2, 0);
+        final delay = midnight.difference(now);
+
+        if (!kIsWeb && Platform.isAndroid) {
+          await wm.Workmanager().registerPeriodicTask(
+            "anchor_wallpaper_midnight",
+            "applyWallpaper",
+            frequency: const Duration(hours: 24),
+            initialDelay: delay,
+            existingWorkPolicy: wm.ExistingPeriodicWorkPolicy.update,
+            constraints: wm.Constraints(networkType: wm.NetworkType.notRequired),
+          );
+        }
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(
+              (!kIsWeb && Platform.isAndroid)
+                  ? "Next update at ${midnight.hour.toString().padLeft(2, '0')}:00 ✓"
+                  : "Auto-update set (runs on Android only) ✓",
+              style: AnchorTheme.body(14),
+            ),
+            backgroundColor: const Color(0xFF1A2200),
+          ));
+        }
+      } else {
+        if (!kIsWeb && Platform.isAndroid) {
+          await wm.Workmanager().cancelByUniqueName("anchor_wallpaper_midnight");
+        }
+      }
+    } catch (e) {
+      debugPrint("Error toggling auto-update: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(
-            Platform.isAndroid
-                ? "Next update at ${midnight.hour.toString().padLeft(2, '0')}:00 ✓"
-                : "Auto-update set (runs on Android only) ✓",
-            style: AnchorTheme.body(14),
-          ),
-          backgroundColor: const Color(0xFF1A2200),
+          content: Text("Failed to toggle auto-update: $e"),
+          backgroundColor: const Color(0xFF2A0000),
         ));
-      }
-    } else {
-      if (Platform.isAndroid) {
-        await wm.Workmanager().cancelByUniqueName("anchor_wallpaper_midnight");
       }
     }
   }
@@ -207,7 +218,7 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
       await prefs.setDouble('anchor_wallpaper_width', size.width);
       await prefs.setDouble('anchor_wallpaper_height', size.height);
 
-      if (!Platform.isAndroid) {
+      if (kIsWeb || !Platform.isAndroid) {
         throw Exception("Setting wallpaper programmatically is only supported on Android. Save the image and apply manually.");
       }
 

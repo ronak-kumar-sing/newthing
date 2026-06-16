@@ -7,6 +7,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/glass_card.dart';
@@ -81,6 +82,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   late final TextEditingController cityController;
 
   DateTime? _independenceDate;
+  DateTime? _independenceStartDate;
   int limitMinutes = 120;
   String _selectedModel = 'gemini-2.5-flash';
 
@@ -123,6 +125,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       nameController.text = settings.userName ?? '';
       cityController.text = settings.weatherCity ?? '';
       _independenceDate = settings.independenceDate;
+      _independenceStartDate = settings.independenceStartDate;
       limitMinutes = settings.distractionLimitMinutes;
       _selectedModel = settings.geminiModel;
       _whatsappDigestEnabled = settings.whatsappDigestEnabled;
@@ -146,6 +149,25 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
     if (_independenceDate != null) {
       await dao.updateTargetDate(_independenceDate!);
+    }
+    if (_independenceStartDate != null) {
+      await dao.setIndependenceStartDate(_independenceStartDate!);
+    }
+
+    // Sync dates/label to SharedPreferences for the background wallpaper task.
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (_independenceDate != null) {
+        await prefs.setString('anchor_target_date', _independenceDate!.toIso8601String());
+      }
+      if (_independenceStartDate != null) {
+        await prefs.setString('anchor_start_date', _independenceStartDate!.toIso8601String());
+      }
+      if (goalTitleController.text.isNotEmpty) {
+        await prefs.setString('anchor_goal_title', goalTitleController.text);
+      }
+    } catch (e) {
+      debugPrint('Failed to sync wallpaper prefs: $e');
     }
 
     // Apply to live API clients
@@ -670,6 +692,66 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               controller: goalTitleController,
                               style: GoogleFonts.plusJakartaSans(color: Colors.white, fontSize: 14),
                               decoration: const InputDecoration.collapsed(hintText: 'e.g. Financial Freedom'),
+                            ),
+                          ),
+                          const SizedBox(height: 18),
+                          Text(
+                            'Start Date',
+                            style: GoogleFonts.plusJakartaSans(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withOpacity(0.55),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () async {
+                              final date = await showDatePicker(
+                                context: context,
+                                initialDate: _independenceStartDate ?? DateTime.now(),
+                                firstDate: DateTime(2000),
+                                lastDate: DateTime.now(),
+                                builder: (context, child) => Theme(
+                                  data: Theme.of(context).copyWith(
+                                    colorScheme: const ColorScheme.dark(
+                                      primary: Color(0xFFC6F52C),
+                                      onPrimary: Colors.black,
+                                      surface: Color(0xFF141414),
+                                      onSurface: Colors.white,
+                                    ),
+                                  ),
+                                  child: child!,
+                                ),
+                              );
+                              if (date != null) {
+                                setState(() => _independenceStartDate = date);
+                                // Immediate start date update
+                                await ref.read(settingsDaoProvider).setIndependenceStartDate(date);
+                              }
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF141414),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white.withOpacity(0.12)),
+                              ),
+                              child: Row(
+                                children: [
+                                  Text(
+                                    _independenceStartDate != null
+                                        ? DateFormat('MMM dd, yyyy').format(_independenceStartDate!)
+                                        : 'Select Start Date',
+                                    style: GoogleFonts.plusJakartaSans(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  const Spacer(),
+                                  const Text('📅', style: TextStyle(fontSize: 16)),
+                                ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 18),

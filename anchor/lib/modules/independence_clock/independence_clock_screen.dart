@@ -214,76 +214,6 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
           Row(
             children: [
               GestureDetector(
-                onTap: () => _pickDate(context, startDate, isStartDate: true),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: startDate != null
-                        ? Colors.white.withValues(alpha: 0.05)
-                        : AnchorTheme.accent.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: startDate != null
-                          ? Colors.white.withValues(alpha: 0.1)
-                          : AnchorTheme.accent.withValues(alpha: 0.4),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Start: $startStr',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: startDate != null ? AnchorTheme.textSecondary : AnchorTheme.accent,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Icon(
-                        Icons.calendar_today_rounded,
-                        size: 12,
-                        color: startDate != null ? AnchorTheme.textSecondary : AnchorTheme.accent,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
-                onTap: () => _pickDate(context, goalDate),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.05),
-                    borderRadius: BorderRadius.circular(999),
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.1),
-                      width: 1,
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Goal: $dateStr',
-                        style: GoogleFonts.inter(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: AnchorTheme.textSecondary,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      const Icon(
-                        Icons.calendar_today_rounded,
-                        size: 12,
-                        color: AnchorTheme.textSecondary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              GestureDetector(
                 onTap: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -442,7 +372,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
 
   Widget _buildStartDatePrompt() {
     return CleanCard(
-      onTap: () => _pickDate(context, null, isStartDate: true),
+      onTap: () => context.push('/settings'),
       child: Row(
         children: [
           Container(
@@ -464,7 +394,7 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Set your journey start date',
+                  'Set your journey start date in Settings',
                   style: GoogleFonts.inter(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,

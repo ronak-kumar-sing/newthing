@@ -21,7 +21,10 @@ import '../../core/router/app_router.dart';
 import '../english/english_provider.dart';
 import '../english/english_card_widget.dart';
 import '../english/english_test_screen.dart';
+import '../english/english_words_list_screen.dart';
 import '../independence_clock/widgets_screen.dart';
+import '../../providers/sync_provider.dart';
+import '../task_center/task_center_screen.dart';
 
 /// Weather state provider.
 final weatherProvider = FutureProvider<WeatherData?>((ref) async {
@@ -154,9 +157,7 @@ class MorningBriefScreen extends ConsumerWidget {
                       // Tasks Card
                       FadeSlideIn(
                         delaySeconds: 0.1,
-                        child: _TasksCard(
-                          tasks: topTasksAsync.valueOrNull ?? [],
-                        ),
+                        child: const _TasksCard(),
                       ),
                       const SizedBox(height: AnchorTheme.stackGap),
 
@@ -196,7 +197,9 @@ class MorningBriefScreen extends ConsumerWidget {
                                 testTaken: englishState.testTaken,
                                 testScore: englishState.testScore,
                                 onSeeAll: () {
-                                  // TODO: Optional list view
+                                  Navigator.of(context).push(MaterialPageRoute(
+                                    builder: (_) => EnglishWordsListScreen(words: englishState.words),
+                                  ));
                                 },
                                 onStartTest: () {
                                   Navigator.of(context).push(MaterialPageRoute(
@@ -466,13 +469,13 @@ class _CountdownCard extends StatelessWidget {
   }
 }
 
-class _TasksCard extends StatelessWidget {
-  final List<Task> tasks;
-
-  const _TasksCard({required this.tasks});
+class _TasksCard extends ConsumerWidget {
+  const _TasksCard();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final topTasksAsync = ref.watch(topTasksProvider);
+
     return CleanCard(
       onTap: () => context.go(Routes.taskCenter),
       child: Column(
@@ -482,67 +485,105 @@ class _TasksCard extends StatelessWidget {
             children: [
               const SectionHeader(label: "Today's Focus"),
               const SizedBox(width: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF2A2A2A),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-                child: Text(
-                  '${tasks.length}',
-                  style: GoogleFonts.inter(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: AnchorTheme.accent,
+              topTasksAsync.when(
+                data: (tasks) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF2A2A2A),
+                    borderRadius: BorderRadius.circular(6),
                   ),
+                  child: Text(
+                    '${tasks.length}',
+                    style: GoogleFonts.inter(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: AnchorTheme.accent,
+                    ),
+                  ),
+                ),
+                loading: () => const SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 1.5,
+                    valueColor: AlwaysStoppedAnimation<Color>(AnchorTheme.accent),
+                  ),
+                ),
+                error: (_, __) => const Icon(
+                  Icons.error_outline_rounded,
+                  size: 12,
+                  color: AnchorTheme.statusRed,
                 ),
               ),
             ],
           ),
           const SizedBox(height: 20),
-          if (tasks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                'No active tasks — enjoy the breathing room.',
-                style: GoogleFonts.inter(
-                  fontSize: 13,
-                  color: AnchorTheme.textMuted,
+          topTasksAsync.when(
+            data: (tasks) {
+              if (tasks.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Text(
+                    'No active tasks — enjoy the breathing room.',
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AnchorTheme.textMuted,
+                    ),
+                  ),
+                );
+              }
+              return ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: tasks.length,
+                separatorBuilder: (context, index) => Container(
+                  height: 1,
+                  color: const Color(0xFF252525),
+                  margin: const EdgeInsets.symmetric(vertical: 16),
+                ),
+                itemBuilder: (context, index) {
+                  return _MiniTask(task: tasks[index]);
+                },
+              );
+            },
+            loading: () => Column(
+              children: List.generate(
+                3,
+                (index) => const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 12.0),
+                  child: SkeletonPanel(height: 48),
                 ),
               ),
-            )
-          else
-            ListView.separated(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: tasks.length,
-              separatorBuilder: (context, index) => Container(
-                height: 1,
-                color: const Color(0xFF252525),
-                margin: const EdgeInsets.symmetric(vertical: 16),
-              ),
-              itemBuilder: (context, index) {
-                return _MiniTask(task: tasks[index]);
-              },
             ),
+            error: (err, stack) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 12.0),
+              child: Text(
+                'Failed to load tasks.',
+                style: GoogleFonts.inter(
+                  fontSize: 13,
+                  color: AnchorTheme.statusRed,
+                ),
+              ),
+            ),
+          ),
         ],
       ),
     );
   }
 }
 
-class _MiniTask extends StatelessWidget {
+class _MiniTask extends ConsumerWidget {
   final Task task;
 
   const _MiniTask({required this.task});
 
   @override
-  Widget build(BuildContext context) {
-    Color dotColor = AnchorTheme.textMuted;
+  Widget build(BuildContext context, WidgetRef ref) {
+    Color priorityColor = AnchorTheme.textMuted;
     List<BoxShadow>? dotShadow;
 
     if (task.isOverdue) {
-      dotColor = AnchorTheme.statusRed;
+      priorityColor = AnchorTheme.statusRed;
       dotShadow = [
         BoxShadow(
           color: AnchorTheme.statusRed.withValues(alpha: 0.4),
@@ -551,100 +592,214 @@ class _MiniTask extends StatelessWidget {
         ),
       ];
     } else if (task.priority == 1) {
-      dotColor = AnchorTheme.statusRed;
+      priorityColor = AnchorTheme.statusRed;
     } else if (task.priority == 2) {
-      dotColor = AnchorTheme.statusOrange;
+      priorityColor = AnchorTheme.statusOrange;
     } else if (task.priority == 3) {
-      dotColor = AnchorTheme.statusBlue;
+      priorityColor = AnchorTheme.statusBlue;
     } else {
-      dotColor = AnchorTheme.accent;
+      priorityColor = AnchorTheme.accent;
     }
 
     final hasDescription = task.description != null && task.description!.trim().isNotEmpty;
     final hasDueDate = task.dueDate != null;
 
+    void completeTask() async {
+      if (task.todoistId != null) {
+        try {
+          await ref.read(todoistApiProvider).closeTask(task.todoistId!);
+        } catch (_) {}
+      }
+      await ref.read(taskDaoProvider).completeTask(task.id);
+
+      ref.invalidate(activeTasksProvider);
+      ref.invalidate(overdueTasksProvider);
+      ref.invalidate(tasksDueTodayProvider);
+      ref.invalidate(completedTasksProvider);
+      ref.invalidate(topTasksProvider);
+
+      ref.read(syncServiceProvider).syncTasks().then((_) {
+        ref.invalidate(activeTasksProvider);
+        ref.invalidate(overdueTasksProvider);
+        ref.invalidate(tasksDueTodayProvider);
+        ref.invalidate(completedTasksProvider);
+        ref.invalidate(topTasksProvider);
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AnchorTheme.cardBgHigh,
+            duration: const Duration(seconds: 1),
+            content: Text(
+              'Task completed',
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+          ),
+        );
+      }
+    }
+
+    void deleteTask() async {
+      if (task.todoistId != null) {
+        try {
+          await ref.read(todoistApiProvider).deleteTask(task.todoistId!);
+        } catch (_) {}
+      }
+      await ref.read(taskDaoProvider).deleteTask(task.id);
+
+      ref.invalidate(activeTasksProvider);
+      ref.invalidate(overdueTasksProvider);
+      ref.invalidate(tasksDueTodayProvider);
+      ref.invalidate(completedTasksProvider);
+      ref.invalidate(topTasksProvider);
+
+      ref.read(syncServiceProvider).syncTasks().then((_) {
+        ref.invalidate(activeTasksProvider);
+        ref.invalidate(overdueTasksProvider);
+        ref.invalidate(tasksDueTodayProvider);
+        ref.invalidate(completedTasksProvider);
+        ref.invalidate(topTasksProvider);
+      });
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: AnchorTheme.cardBgHigh,
+            duration: const Duration(seconds: 1),
+            content: Text(
+              'Task deleted',
+              style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
+            ),
+          ),
+        );
+      }
+    }
+
+    void editTask() {
+      showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        useRootNavigator: true,
+        backgroundColor: Colors.transparent,
+        builder: (_) => AddTaskBottomSheet(taskToEdit: task),
+      );
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 10,
-          height: 10,
-          margin: const EdgeInsets.only(top: 6, right: 12),
-          decoration: BoxDecoration(
-            color: dotColor,
-            shape: BoxShape.circle,
-            boxShadow: dotShadow,
+        // Interactive custom circular checkbox
+        GestureDetector(
+          onTap: completeTask,
+          child: Container(
+            width: 20,
+            height: 20,
+            margin: const EdgeInsets.only(top: 2, right: 12),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: priorityColor.withOpacity(0.8),
+                width: 1.5,
+              ),
+              boxShadow: dotShadow,
+            ),
+            child: const Center(
+              child: Icon(
+                Icons.check,
+                size: 12,
+                color: Colors.transparent,
+              ),
+            ),
           ),
         ),
+        // Tapable task body for editing
         Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      style: GoogleFonts.inter(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                  if (task.isOverdue) ...[
-                    const SizedBox(width: 8),
-                    const StatusPill(label: 'OVERDUE', color: AnchorTheme.statusRed),
-                  ],
-                ],
-              ),
-              if (hasDescription) ...[
-                const SizedBox(height: 4),
-                Text(
-                  task.description!,
-                  style: GoogleFonts.inter(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w400,
-                    color: AnchorTheme.textSecondary,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-              if (hasDueDate) ...[
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: AnchorTheme.surfaceContainer,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.calendar_today_rounded,
-                        size: 12,
-                        color: AnchorTheme.textSecondary,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        task.isDueToday
-                            ? 'Today'
-                            : DateFormat('MMM d').format(task.dueDate!),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: editTask,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        task.title,
                         style: GoogleFonts.inter(
-                          fontSize: 10,
+                          fontSize: 15,
                           fontWeight: FontWeight.w700,
-                          color: AnchorTheme.textSecondary,
+                          color: Colors.white,
                         ),
                       ),
+                    ),
+                    if (task.isOverdue) ...[
+                      const SizedBox(width: 8),
+                      const StatusPill(label: 'OVERDUE', color: AnchorTheme.statusRed),
                     ],
-                  ),
+                  ],
                 ),
+                if (hasDescription) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    task.description!,
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w400,
+                      color: AnchorTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                if (hasDueDate) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: AnchorTheme.surfaceContainer,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 12,
+                          color: AnchorTheme.textSecondary,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          task.isDueToday
+                              ? 'Today'
+                              : DateFormat('MMM d').format(task.dueDate!),
+                          style: GoogleFonts.inter(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                            color: AnchorTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
+        ),
+        const SizedBox(width: 8),
+        // Delete button
+        IconButton(
+          icon: const Icon(
+            Icons.delete_outline_rounded,
+            color: AnchorTheme.statusRed,
+            size: 20,
+          ),
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          onPressed: deleteTask,
         ),
       ],
     );

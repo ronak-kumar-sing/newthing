@@ -347,10 +347,23 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
     ref.invalidate(completedTasksProvider);
     ref.invalidate(topTasksProvider);
 
+    ref.read(syncServiceProvider).syncTasks().then((_) {
+      ref.invalidate(activeTasksProvider);
+      ref.invalidate(overdueTasksProvider);
+      ref.invalidate(tasksDueTodayProvider);
+      ref.invalidate(completedTasksProvider);
+      ref.invalidate(topTasksProvider);
+    });
+
     _showSnackBar('Task completed');
   }
 
   void _reopenTask(Task task) async {
+    if (task.todoistId != null) {
+      try {
+        await ref.read(todoistApiProvider).reopenTask(task.todoistId!);
+      } catch (_) {}
+    }
     await ref.read(taskDaoProvider).reopenTask(task.id);
 
     ref.invalidate(activeTasksProvider);
@@ -358,6 +371,14 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
     ref.invalidate(tasksDueTodayProvider);
     ref.invalidate(completedTasksProvider);
     ref.invalidate(topTasksProvider);
+
+    ref.read(syncServiceProvider).syncTasks().then((_) {
+      ref.invalidate(activeTasksProvider);
+      ref.invalidate(overdueTasksProvider);
+      ref.invalidate(tasksDueTodayProvider);
+      ref.invalidate(completedTasksProvider);
+      ref.invalidate(topTasksProvider);
+    });
 
     _showSnackBar('Task reopened');
   }
@@ -387,7 +408,7 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
       useSafeArea: true,
       useRootNavigator: true,
       backgroundColor: Colors.transparent,
-      builder: (context) => const _AddTaskBottomSheet(),
+      builder: (context) => const AddTaskBottomSheet(),
     );
   }
 }
@@ -528,9 +549,26 @@ class _TaskList extends ConsumerWidget {
                   ),
                   child: const Icon(Icons.delete_outline, color: AnchorTheme.statusRed),
                 ),
-                onDismissed: (_) {
-                  ref.read(taskDaoProvider).deleteTask(task.id);
+                onDismissed: (_) async {
+                  if (task.todoistId != null) {
+                    try {
+                      await ref.read(todoistApiProvider).deleteTask(task.todoistId!);
+                    } catch (_) {}
+                  }
+                  await ref.read(taskDaoProvider).deleteTask(task.id);
                   ref.invalidate(activeTasksProvider);
+                  ref.invalidate(overdueTasksProvider);
+                  ref.invalidate(tasksDueTodayProvider);
+                  ref.invalidate(completedTasksProvider);
+                  ref.invalidate(topTasksProvider);
+
+                  ref.read(syncServiceProvider).syncTasks().then((_) {
+                    ref.invalidate(activeTasksProvider);
+                    ref.invalidate(overdueTasksProvider);
+                    ref.invalidate(tasksDueTodayProvider);
+                    ref.invalidate(completedTasksProvider);
+                    ref.invalidate(topTasksProvider);
+                  });
                 },
                 child: BouncingButton(
                   onTap: () {
@@ -540,7 +578,7 @@ class _TaskList extends ConsumerWidget {
                       useSafeArea: true,
                       useRootNavigator: true,
                       backgroundColor: Colors.transparent,
-                      builder: (_) => _AddTaskBottomSheet(taskToEdit: task),
+                      builder: (_) => AddTaskBottomSheet(taskToEdit: task),
                     );
                   },
                   child: _TaskItem(
@@ -803,15 +841,15 @@ class _TagChip extends StatelessWidget {
 }
 
 // ─── Add Task Bottom Sheet Modal ──────────────────────────────────────────
-class _AddTaskBottomSheet extends ConsumerStatefulWidget {
+class AddTaskBottomSheet extends ConsumerStatefulWidget {
   final Task? taskToEdit;
-  const _AddTaskBottomSheet({this.taskToEdit});
+  const AddTaskBottomSheet({this.taskToEdit});
 
   @override
-  ConsumerState<_AddTaskBottomSheet> createState() => _AddTaskBottomSheetState();
+  ConsumerState<AddTaskBottomSheet> createState() => AddTaskBottomSheetState();
 }
 
-class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
+class AddTaskBottomSheetState extends ConsumerState<AddTaskBottomSheet> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   DateTime? _dueDate;
@@ -1091,6 +1129,21 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
       return;
     }
     setState(() => _isSaving = true);
+    final isEditing = widget.taskToEdit != null;
+    final todoistId = widget.taskToEdit?.todoistId;
+
+    if (isEditing && todoistId != null) {
+      try {
+        await ref.read(todoistApiProvider).updateTask(
+          todoistId: todoistId,
+          title: title,
+          description: _descriptionController.text.trim(),
+          dueDate: _dueDate,
+          priority: _priority,
+        );
+      } catch (_) {}
+    }
+
     final taskId = widget.taskToEdit?.id ?? 'local_${DateTime.now().millisecondsSinceEpoch}';
     final task = TasksCompanion(
       id: Value(taskId),
@@ -1109,6 +1162,15 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
     ref.invalidate(tasksDueTodayProvider);
     ref.invalidate(completedTasksProvider);
     ref.invalidate(topTasksProvider);
+
+    ref.read(syncServiceProvider).syncTasks().then((_) {
+      ref.invalidate(activeTasksProvider);
+      ref.invalidate(overdueTasksProvider);
+      ref.invalidate(tasksDueTodayProvider);
+      ref.invalidate(completedTasksProvider);
+      ref.invalidate(topTasksProvider);
+    });
+
     if (mounted) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1116,7 +1178,7 @@ class _AddTaskBottomSheetState extends ConsumerState<_AddTaskBottomSheet> {
           backgroundColor: AnchorTheme.textPrimary,
           duration: const Duration(seconds: 1),
           content: Text(
-            'Task added',
+            isEditing ? 'Task updated' : 'Task added',
             style: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.white),
           ),
         ),
