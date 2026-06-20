@@ -19,6 +19,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../providers/whatsapp_bridge_provider.dart';
 import '../../providers/task_provider.dart';
+import '../../core/responsive/responsive_content_layout.dart';
 import 'whatsapp_message_source.dart';
 import 'whatsapp_notification_service.dart';
 
@@ -51,125 +52,139 @@ class _WhatsappDigestScreenState extends ConsumerState<WhatsappDigestScreen>
 
     final enabled = settingsAsync.valueOrNull?.whatsappDigestEnabled ?? true;
 
-    return Scaffold(
+    final mobileBody = Scaffold(
       backgroundColor: AnchorTheme.background,
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-              child: CleanCard(
-                padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+        child: _buildBody(context, ref, enabled, bridgeAsync),
+      ),
+    );
+
+    return ResponsiveContentLayout(
+      mobileBody: mobileBody,
+      desktopBody: _buildBody(context, ref, enabled, bridgeAsync),
+    );
+  }
+
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    bool enabled,
+    AsyncValue<WAStatus> bridgeAsync,
+  ) {
+    return Column(
+      children: [
+        // ── Header ──
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+          child: CleanCard(
+            padding: const EdgeInsets.fromLTRB(20, 16, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'WhatsApp Digest',
-                                style: GoogleFonts.inter(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: -0.5,
-                                  color: AnchorTheme.textPrimary,
-                                ),
-                              ),
-                              Text(
-                                'Auto-summarized from your groups',
-                                style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.textMuted),
-                              ),
-                            ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'WhatsApp Digest',
+                            style: GoogleFonts.inter(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: -0.5,
+                              color: AnchorTheme.textPrimary,
+                            ),
                           ),
-                        ),
-                        // Generate button
-                        if (enabled)
-                          bridgeAsync.when(
-                            data: (status) => status == WAStatus.connected
-                                ? _generatingDigest
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent),
-                                      )
-                                    : PrimaryButton(
-                                        'Generate',
-                                        _generateDigest,
-                                        height: 38,
-                                        icon: Icons.auto_awesome,
-                                      )
-                                : const SizedBox.shrink(),
-                            loading: () => const SizedBox.shrink(),
-                            error: (_, _) => const SizedBox.shrink(),
+                          Text(
+                            'Auto-summarized from your groups',
+                            style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.textMuted),
                           ),
-                        const SizedBox(width: 8),
-                        IconButton(
-                          icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
-                          onPressed: () => context.push('/settings'),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 14),
-                    // Connection status banner
-                    _ConnectionBanner(
-                      onConnect: _startBridgeAndConnect,
-                      onShowQr: _showQrCode,
+                    // Generate button
+                    if (enabled)
+                      bridgeAsync.when(
+                        data: (status) => status == WAStatus.connected
+                            ? _generatingDigest
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: AnchorTheme.accent),
+                                  )
+                                : PrimaryButton(
+                                    'Generate',
+                                    _generateDigest,
+                                    height: 38,
+                                    icon: Icons.auto_awesome,
+                                  )
+                            : const SizedBox.shrink(),
+                        loading: () => const SizedBox.shrink(),
+                        error: (_, _) => const SizedBox.shrink(),
+                      ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(Icons.settings_outlined, size: 20, color: Colors.white.withOpacity(0.50)),
+                      onPressed: () => context.push('/settings'),
                     ),
-                    if (_lastError != null) ...[
-                      const SizedBox(height: 10),
-                      _ErrorPill(message: _lastError!, onDismiss: () => setState(() => _lastError = null)),
-                    ],
                   ],
                 ),
-              ),
-            ).animate().fade().slideY(begin: -0.1),
-
-            // ── Tab Bar ──
-            Container(
-              margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              decoration: BoxDecoration(
-                color: AnchorTheme.cardBg,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AnchorTheme.cardBorder),
-              ),
-              child: TabBar(
-                controller: _tabController,
-                tabs: const [
-                  Tab(text: 'Today'),
-                  Tab(text: 'History'),
-                  Tab(text: 'Groups'),
-                ],
-                indicator: BoxDecoration(
-                  color: AnchorTheme.accent,
-                  borderRadius: BorderRadius.circular(7),
+                const SizedBox(height: 14),
+                // Connection status banner
+                _ConnectionBanner(
+                  onConnect: _startBridgeAndConnect,
+                  onShowQr: _showQrCode,
                 ),
-                indicatorSize: TabBarIndicatorSize.tab,
-                labelColor: AnchorTheme.background,
-                unselectedLabelColor: AnchorTheme.textSecondary,
-                labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
-                unselectedLabelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
-                dividerColor: Colors.transparent,
-              ),
-            ).animate(delay: 100.ms).fade(),
-
-            // ── Tab Views ──
-            Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _TodayTab(onAddToTasks: _addToTasks, enabled: enabled),
-                  const _HistoryTab(),
-                  const _GroupsTab(),
+                if (_lastError != null) ...[
+                  const SizedBox(height: 10),
+                  _ErrorPill(message: _lastError!, onDismiss: () => setState(() => _lastError = null)),
                 ],
-              ),
-            ).animate(delay: 200.ms).fade().slideY(begin: 0.1),
-          ],
-        ),
-      ),
+              ],
+            ),
+          ),
+        ).animate().fade().slideY(begin: -0.1),
+
+        // ── Tab Bar ──
+        Container(
+          margin: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+          decoration: BoxDecoration(
+            color: AnchorTheme.cardBg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AnchorTheme.cardBorder),
+          ),
+          child: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Today'),
+              Tab(text: 'History'),
+              Tab(text: 'Groups'),
+            ],
+            indicator: BoxDecoration(
+              color: AnchorTheme.accent,
+              borderRadius: BorderRadius.circular(7),
+            ),
+            indicatorSize: TabBarIndicatorSize.tab,
+            labelColor: AnchorTheme.background,
+            unselectedLabelColor: AnchorTheme.textSecondary,
+            labelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w700),
+            unselectedLabelStyle: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w500),
+            dividerColor: Colors.transparent,
+          ),
+        ).animate(delay: 100.ms).fade(),
+
+        // ── Tab Views ──
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _TodayTab(onAddToTasks: _addToTasks, enabled: enabled),
+              const _HistoryTab(),
+              const _GroupsTab(),
+            ],
+          ),
+        ).animate(delay: 200.ms).fade().slideY(begin: 0.1),
+      ],
     );
   }
 

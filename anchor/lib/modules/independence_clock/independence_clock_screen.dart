@@ -15,6 +15,7 @@ import 'wallpaper_screen.dart';
 import 'widgets_screen.dart';
 import '../../core/widgets/anchor_background.dart';
 import 'widgets/clock_widgets.dart';
+import '../../core/responsive/responsive_content_layout.dart';
 
 /// Focus streak count provider.
 final journalStreakProvider = FutureProvider<int>((ref) async {
@@ -117,60 +118,79 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     final totalDays = journey.totalDays;
     final progress = journey.progress;
 
-    return Scaffold(
+    final mobileBody = Scaffold(
       backgroundColor: const Color(0xFF050505),
       body: AnchorBackground(
-        child: Column(
-            children: [
-              // Sticky Top Bar Header
-              _buildHeader(context, goalDate, startDate),
-              // Main content
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(32, 24, 32, 100),
-                  child: Column(
-                    children: [
-                      // Hero Countdown Card
-                      FadeSlideIn(
-                        delaySeconds: 0.05,
-                        child: _buildHeroCard(daysLeft, goalDate, startDate, label, progress, totalDays),
-                      ),
-                      const SizedBox(height: 24.0),
+        child: _buildBody(context, ref, journey, goalDate, startDate, label, daysLeft, totalDays, progress),
+      ),
+    );
 
-                      if (!journey.hasStartDate) ...[
-                        FadeSlideIn(
-                          delaySeconds: 0.08,
-                          child: _buildStartDatePrompt(),
-                        ),
-                        const SizedBox(height: 24.0),
-                      ],
+    return ResponsiveContentLayout(
+      mobileBody: mobileBody,
+      desktopBody: _buildBody(context, ref, journey, goalDate, startDate, label, daysLeft, totalDays, progress),
+    );
+  }
 
-                      // Streak Tracker
-                      FadeSlideIn(
-                        delaySeconds: 0.1,
-                        child: const _StreakTrackerCard(),
-                      ),
-                      const SizedBox(height: 24.0),
-
-                      // Pace Check
-                      FadeSlideIn(
-                        delaySeconds: 0.15,
-                        child: _buildPaceCheckCard(progress, daysLeft),
-                      ),
-                      const SizedBox(height: 24.0),
-
-                      // Streak Dot Grid Matrix
-                      FadeSlideIn(
-                        delaySeconds: 0.2,
-                        child: _buildStreakClockCard(label),
-                      ),
-                    ],
-                  ),
+  Widget _buildBody(
+    BuildContext context,
+    WidgetRef ref,
+    JourneyConfig journey,
+    DateTime? goalDate,
+    DateTime? startDate,
+    String label,
+    int daysLeft,
+    int totalDays,
+    double progress,
+  ) {
+    return Column(
+      children: [
+        // Sticky Top Bar Header
+        _buildHeader(context, goalDate, startDate),
+        // Main content
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(32, 24, 32, 100),
+            child: Column(
+              children: [
+                // Hero Countdown Card
+                FadeSlideIn(
+                  delaySeconds: 0.05,
+                  child: _buildHeroCard(daysLeft, goalDate, startDate, label, progress, totalDays),
                 ),
-              ),
-            ],
+                const SizedBox(height: 24.0),
+
+                if (!journey.hasStartDate) ...[
+                  FadeSlideIn(
+                    delaySeconds: 0.08,
+                    child: _buildStartDatePrompt(),
+                  ),
+                  const SizedBox(height: 24.0),
+                ],
+
+                // Streak Tracker
+                FadeSlideIn(
+                  delaySeconds: 0.1,
+                  child: const _StreakTrackerCard(),
+                ),
+                const SizedBox(height: 24.0),
+
+                // Pace Check
+                FadeSlideIn(
+                  delaySeconds: 0.15,
+                  child: _buildPaceCheckCard(progress, daysLeft),
+                ),
+                const SizedBox(height: 24.0),
+
+                // Streak Dot Grid Matrix
+                FadeSlideIn(
+                  delaySeconds: 0.2,
+                  child: _buildStreakClockCard(label),
+                ),
+              ],
+            ),
           ),
         ),
+      ],
     );
   }
 

@@ -17,6 +17,7 @@ import '../../data/remote/weather_api.dart';
 import '../../core/widgets/anchor_background.dart';
 import '../../core/widgets/skeleton_loader.dart';
 import 'package:go_router/go_router.dart';
+import '../../core/responsive/responsive_content_layout.dart';
 import '../../core/router/app_router.dart';
 import '../english/english_provider.dart';
 import '../english/english_card_widget.dart';
@@ -118,7 +119,7 @@ class MorningBriefScreen extends ConsumerWidget {
       );
     });
 
-    return Scaffold(
+    final mobileBody = Scaffold(
       backgroundColor: AnchorTheme.background,
       body: AnchorBackground(
         child: Column(
@@ -142,88 +143,157 @@ class MorningBriefScreen extends ConsumerWidget {
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                  child: Column(
-                    children: [
-                      // Countdown Card
-                      FadeSlideIn(
-                        delaySeconds: 0.05,
-                        child: _CountdownCard(
-                          daysRemaining: daysRemainingAsync.valueOrNull,
-                          label: settings?.independenceLabel ?? 'Target Date',
-                        ),
-                      ),
-                      const SizedBox(height: AnchorTheme.stackGap),
-
-                      // Tasks Card
-                      FadeSlideIn(
-                        delaySeconds: 0.1,
-                        child: const _TasksCard(),
-                      ),
-                      const SizedBox(height: AnchorTheme.stackGap),
-
-                      // AI Coach Card
-                      FadeSlideIn(
-                        delaySeconds: 0.15,
-                        child: const _AICoachCard(),
-                      ),
-                      const SizedBox(height: AnchorTheme.stackGap),
-
-                      // Weather & Check-In Row
-                      FadeSlideIn(
-                        delaySeconds: 0.2,
-                        child: Row(
-                          children: [
-                            Expanded(child: const _WeatherCard()),
-                            const SizedBox(width: 16),
-                            Expanded(child: const _CheckInCard()),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AnchorTheme.stackGap),
-
-                      // English Word Of The Day Block
-                      Consumer(
-                        builder: (context, ref, _) {
-                          final englishState = ref.watch(englishProvider);
-                          if (!englishState.hasWords) {
-                            return const SizedBox();
-                          }
-                          return FadeSlideIn(
-                            delaySeconds: 0.25,
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: AnchorTheme.stackGap),
-                              child: WordOfTheDayCard(
-                                word: englishState.words.first,
-                                testTaken: englishState.testTaken,
-                                testScore: englishState.testScore,
-                                onSeeAll: () {
-                                  Navigator.of(context).push(MaterialPageRoute(
-                                    builder: (_) => EnglishWordsListScreen(words: englishState.words),
-                                  ));
-                                },
-                                onStartTest: () {
-                                  Navigator.of(context).push(MaterialPageRoute(
-                                    builder: (_) => EnglishTestScreen(words: englishState.words),
-                                  ));
-                                },
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      // Daily Intention Block
-                      FadeSlideIn(
-                        delaySeconds: 0.3,
-                        child: const _IntentionCard(),
-                      ),
-                    ],
-                  ),
+                  child: _buildCardColumn(context, ref, settings, daysRemainingAsync, topTasksAsync),
                 ),
               ),
             ),
           ],
         ),
+      ),
+    );
+
+    return ResponsiveContentLayout(
+      mobileBody: mobileBody,
+      desktopBody: _buildDesktopBody(context, ref, settings, daysRemainingAsync, name),
+    );
+  }
+
+  Widget _buildCardColumn(
+    BuildContext context,
+    WidgetRef ref,
+    AppSetting? settings,
+    AsyncValue<int?> daysRemainingAsync,
+    AsyncValue<List<Task>> topTasksAsync,
+  ) {
+    return Column(
+      children: [
+        // Countdown Card
+        FadeSlideIn(
+          delaySeconds: 0.05,
+          child: _CountdownCard(
+            daysRemaining: daysRemainingAsync.valueOrNull,
+            label: settings?.independenceLabel ?? 'Target Date',
+          ),
+        ),
+        const SizedBox(height: AnchorTheme.stackGap),
+
+        // Tasks Card
+        FadeSlideIn(
+          delaySeconds: 0.1,
+          child: const _TasksCard(),
+        ),
+        const SizedBox(height: AnchorTheme.stackGap),
+
+        // AI Coach Card
+        FadeSlideIn(
+          delaySeconds: 0.15,
+          child: const _AICoachCard(),
+        ),
+        const SizedBox(height: AnchorTheme.stackGap),
+
+        // Weather & Check-In Row
+        FadeSlideIn(
+          delaySeconds: 0.2,
+          child: Row(
+            children: [
+              Expanded(child: const _WeatherCard()),
+              const SizedBox(width: 16),
+              Expanded(child: const _CheckInCard()),
+            ],
+          ),
+        ),
+        const SizedBox(height: AnchorTheme.stackGap),
+
+        // English Word Of The Day Block
+        Consumer(
+          builder: (context, ref, _) {
+            final englishState = ref.watch(englishProvider);
+            if (!englishState.hasWords) {
+              return const SizedBox();
+            }
+            return FadeSlideIn(
+              delaySeconds: 0.25,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AnchorTheme.stackGap),
+                child: WordOfTheDayCard(
+                  word: englishState.words.first,
+                  testTaken: englishState.testTaken,
+                  testScore: englishState.testScore,
+                  onSeeAll: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => EnglishWordsListScreen(words: englishState.words),
+                    ));
+                  },
+                  onStartTest: () {
+                    Navigator.of(context).push(MaterialPageRoute(
+                      builder: (_) => EnglishTestScreen(words: englishState.words),
+                    ));
+                  },
+                ),
+              ),
+            );
+          },
+        ),
+
+        // Daily Intention Block
+        FadeSlideIn(
+          delaySeconds: 0.3,
+          child: const _IntentionCard(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDesktopBody(
+    BuildContext context,
+    WidgetRef ref,
+    AppSetting? settings,
+    AsyncValue<int?> daysRemainingAsync,
+    String name,
+  ) {
+    final now = DateTime.now();
+    final dateStr = DateFormat('EEEE, MMMM d').format(now);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Desktop header row
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Good Morning, $name',
+                      style: GoogleFonts.spaceGrotesk(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      dateStr,
+                      style: GoogleFonts.inter(
+                        fontSize: 14,
+                        color: AnchorTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              _buildHeader(context, name),
+            ],
+          ),
+          const SizedBox(height: 32),
+          // Reuse the same cards but allow them to breathe at max-width
+          _buildCardColumn(context, ref, settings, daysRemainingAsync, ref.watch(topTasksProvider)),
+        ],
       ),
     );
   }

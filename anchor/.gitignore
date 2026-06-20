@@ -22,7 +22,6 @@
 .dart_tool/
 .flutter-plugins
 .flutter-plugins-dependencies
-.packages
 .pub-preload-cache/
 .pub/
 build/
@@ -58,6 +57,10 @@ linux/flutter/generated_plugins.cmake
 .env
 .env.*
 *.env
+
+# Node.js / npm (root-only; whatsapp-bridge has its own tracked package.json)
+node_modules/
+package-lock.json
 
 # WhatsApp Bridge Node dependencies and authentication sessions
 whatsapp-bridge/node_modules/

@@ -10,6 +10,7 @@ import 'package:drift/drift.dart' show Value;
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/glass_card.dart';
 import '../../core/widgets/anchor_background.dart';
+import '../../core/responsive/responsive_content_layout.dart';
 import '../../core/router/app_router.dart';
 import '../../data/local/database.dart';
 import '../../models/progress_model.dart';
@@ -103,12 +104,17 @@ class LifeProgressScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
+    final mobileBody = Scaffold(
       backgroundColor: const Color(0xFF0A0A0A),
       body: AnchorBackground(
         child: _buildBody(context, ref),
       ),
     ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut);
+
+    return ResponsiveContentLayout(
+      mobileBody: mobileBody,
+      desktopBody: _buildBody(context, ref),
+    );
   }
 
   Widget _buildBody(BuildContext context, WidgetRef ref) {

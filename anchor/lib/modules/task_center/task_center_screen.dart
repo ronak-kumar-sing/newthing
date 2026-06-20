@@ -13,6 +13,7 @@ import '../../providers/database_provider.dart';
 import '../../providers/sync_provider.dart';
 import '../../data/remote/sync_service.dart';
 import '../../core/widgets/anchor_background.dart';
+import '../../core/responsive/responsive_content_layout.dart';
 
 // ─── Custom Bouncing Gesture Wrapper ───────────────────────────────────────
 class BouncingButton extends StatefulWidget {
@@ -88,205 +89,241 @@ class _TaskCenterScreenState extends ConsumerState<TaskCenterScreen>
     final activeCount = activeTasksAsync.valueOrNull?.length ?? 0;
     final upcomingCount = activeCount - todayCount;
 
-    return Scaffold(
+    final mobileBody = Scaffold(
       backgroundColor: AnchorTheme.backgroundDeep,
       body: AnchorBackground(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Main scrollable canvas containing bento statistics and list
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 16),
-                  // ── Stats row ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          _buildStatPill(
-                            label: 'Overdue',
-                            count: overdueCount,
-                            bgColor: AnchorTheme.statusRed.withOpacity(0.15),
-                            borderColor: AnchorTheme.statusRed.withOpacity(0.3),
-                            textColor: AnchorTheme.statusRed,
-                            hasDot: true,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStatPill(
-                            label: 'Due Today',
-                            count: todayCount,
-                            bgColor: AnchorTheme.accentContainer.withOpacity(0.15),
-                            borderColor: AnchorTheme.accentContainer.withOpacity(0.3),
-                            textColor: AnchorTheme.accent,
-                            hasDot: true,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStatPill(
-                            label: 'Upcoming',
-                            count: upcomingCount >= 0 ? upcomingCount : 0,
-                            bgColor: AnchorTheme.surfaceContainerHigh,
-                            borderColor: AnchorTheme.surfaceVariant,
-                            textColor: AnchorTheme.textSecondary,
-                            hasDot: false,
-                          ),
-                        ],
+        child: _buildContent(
+          context,
+          activeTasksAsync,
+          overdueAsync,
+          todayAsync,
+          completedTasksAsync,
+          overdueCount,
+          todayCount,
+          upcomingCount,
+        ),
+      ),
+    ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut);
+
+    return ResponsiveContentLayout(
+      mobileBody: mobileBody,
+      desktopBody: _buildContent(
+        context,
+        activeTasksAsync,
+        overdueAsync,
+        todayAsync,
+        completedTasksAsync,
+        overdueCount,
+        todayCount,
+        upcomingCount,
+      ),
+    );
+  }
+
+  Widget _buildContent(
+    BuildContext context,
+    AsyncValue<List<Task>> activeTasksAsync,
+    AsyncValue<List<Task>> overdueAsync,
+    AsyncValue<List<Task>> todayAsync,
+    AsyncValue<List<Task>> completedTasksAsync,
+    int overdueCount,
+    int todayCount,
+    int upcomingCount,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Main scrollable canvas containing bento statistics and list
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 16),
+              // ── Stats row ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildStatPill(
+                        label: 'Overdue',
+                        count: overdueCount,
+                        bgColor: AnchorTheme.statusRed.withOpacity(0.15),
+                        borderColor: AnchorTheme.statusRed.withOpacity(0.3),
+                        textColor: AnchorTheme.statusRed,
+                        hasDot: true,
                       ),
-                    ),
+                      const SizedBox(width: 8),
+                      _buildStatPill(
+                        label: 'Due Today',
+                        count: todayCount,
+                        bgColor: AnchorTheme.accentContainer.withOpacity(0.15),
+                        borderColor: AnchorTheme.accentContainer.withOpacity(0.3),
+                        textColor: AnchorTheme.accent,
+                        hasDot: true,
+                      ),
+                      const SizedBox(width: 8),
+                      _buildStatPill(
+                        label: 'Upcoming',
+                        count: upcomingCount >= 0 ? upcomingCount : 0,
+                        bgColor: AnchorTheme.surfaceContainerHigh,
+                        borderColor: AnchorTheme.surfaceVariant,
+                        textColor: AnchorTheme.textSecondary,
+                        hasDot: false,
+                      ),
+                    ],
                   ),
+                ),
+              ),
 
-                  const SizedBox(height: 16),
+              const SizedBox(height: 16),
 
-                  // ── Filter + Add Row ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        PopupMenuButton<String>(
-                          onSelected: (val) => setState(() => _filterLabel = val),
-                          color: AnchorTheme.cardBgHigh,
-                          borderRadius: BorderRadius.circular(12),
-                          itemBuilder: (context) => ['All', 'Academic', 'Personal', 'Project', 'Habit', 'Placement']
-                              .map((l) => PopupMenuItem(
-                                    value: l,
-                                    child: Text(
-                                      l,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 14,
-                                        color: AnchorTheme.textPrimary,
-                                      ),
-                                    ),
-                                  ))
-                              .toList(),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AnchorTheme.surfaceContainerHigh,
-                              border: Border.all(color: AnchorTheme.surfaceVariant, width: 1),
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Text(
-                                  _filterLabel,
+              // ── Filter + Add Row ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    PopupMenuButton<String>(
+                      onSelected: (val) => setState(() => _filterLabel = val),
+                      color: AnchorTheme.cardBgHigh,
+                      borderRadius: BorderRadius.circular(12),
+                      itemBuilder: (context) => ['All', 'Academic', 'Personal', 'Project', 'Habit', 'Placement']
+                          .map((l) => PopupMenuItem(
+                                value: l,
+                                child: Text(
+                                  l,
                                   style: GoogleFonts.inter(
                                     fontSize: 14,
-                                    fontWeight: FontWeight.w500,
                                     color: AnchorTheme.textPrimary,
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                                const Icon(
-                                  Icons.arrow_drop_down,
-                                  size: 16,
-                                  color: AnchorTheme.textPrimary,
-                                ),
-                              ],
-                            ),
-                          ),
+                              ))
+                          .toList(),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AnchorTheme.surfaceContainerHigh,
+                          border: Border.all(color: AnchorTheme.surfaceVariant, width: 1),
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        BouncingButton(
-                          onTap: () => _showAddTaskBottomSheet(context),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: AnchorTheme.accentContainer,
-                              borderRadius: BorderRadius.circular(999),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _filterLabel,
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: AnchorTheme.textPrimary,
+                              ),
                             ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                const Icon(
-                                  Icons.add,
-                                  size: 16,
-                                  color: AnchorTheme.onAccent,
-                                ),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'Add Task',
-                                  style: GoogleFonts.inter(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    color: AnchorTheme.onAccent,
-                                  ),
-                                ),
-                              ],
+                            const SizedBox(width: 4),
+                            const Icon(
+                              Icons.arrow_drop_down,
+                              size: 16,
+                              color: AnchorTheme.textPrimary,
                             ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ── Tab Bar ──
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        border: Border(
-                          bottom: BorderSide(color: AnchorTheme.surfaceVariant, width: 1),
+                          ],
                         ),
                       ),
-                      child: TabBar(
-                        controller: _tabController,
-                        indicator: const UnderlineTabIndicator(
-                          borderSide: BorderSide(color: AnchorTheme.accent, width: 2),
+                    ),
+                    BouncingButton(
+                      onTap: () => _showAddTaskBottomSheet(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: AnchorTheme.accentContainer,
+                          borderRadius: BorderRadius.circular(999),
                         ),
-                        labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold),
-                        unselectedLabelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal),
-                        labelColor: AnchorTheme.textPrimary,
-                        unselectedLabelColor: AnchorTheme.textMuted,
-                        dividerColor: Colors.transparent,
-                        indicatorSize: TabBarIndicatorSize.tab,
-                        tabs: const [
-                          Tab(text: 'Active'),
-                          Tab(text: 'Today'),
-                          Tab(text: 'Completed'),
-                        ],
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.add,
+                              size: 16,
+                              color: AnchorTheme.onAccent,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Add Task',
+                              style: GoogleFonts.inter(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: AnchorTheme.onAccent,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-
-                  // ── Tab Content ──
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _TaskList(
-                          tasksAsync: activeTasksAsync,
-                          emptyMessage: 'No active tasks yet. Add your first task.',
-                          filterLabel: _filterLabel,
-                          onAction: (task) => _completeTask(task),
-                        ),
-                        _TaskList(
-                          tasksAsync: todayAsync,
-                          emptyMessage: 'Nothing due today. Enjoy the breathing room.',
-                          filterLabel: _filterLabel,
-                          onAction: (task) => _completeTask(task),
-                        ),
-                        _TaskList(
-                          tasksAsync: completedTasksAsync,
-                          emptyMessage: 'Completed tasks will appear here.',
-                          filterLabel: _filterLabel,
-                          onAction: (task) => _reopenTask(task),
-                          isCompletedList: true,
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          ],
-        ).animate().fadeIn(duration: 300.ms, curve: Curves.easeOut),
-      ),
+
+              const SizedBox(height: 16),
+
+              // ── Tab Bar ──
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Container(
+                  decoration: const BoxDecoration(
+                    border: Border(
+                      bottom: BorderSide(color: AnchorTheme.surfaceVariant, width: 1),
+                    ),
+                  ),
+                  child: TabBar(
+                    controller: _tabController,
+                    indicator: const UnderlineTabIndicator(
+                      borderSide: BorderSide(color: AnchorTheme.accent, width: 2),
+                    ),
+                    labelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.bold),
+                    unselectedLabelStyle: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.normal),
+                    labelColor: AnchorTheme.textPrimary,
+                    unselectedLabelColor: AnchorTheme.textMuted,
+                    dividerColor: Colors.transparent,
+                    indicatorSize: TabBarIndicatorSize.tab,
+                    tabs: const [
+                      Tab(text: 'Active'),
+                      Tab(text: 'Today'),
+                      Tab(text: 'Completed'),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ── Tab Content ──
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _TaskList(
+                      tasksAsync: activeTasksAsync,
+                      emptyMessage: 'No active tasks yet. Add your first task.',
+                      filterLabel: _filterLabel,
+                      onAction: (task) => _completeTask(task),
+                    ),
+                    _TaskList(
+                      tasksAsync: todayAsync,
+                      emptyMessage: 'Nothing due today. Enjoy the breathing room.',
+                      filterLabel: _filterLabel,
+                      onAction: (task) => _completeTask(task),
+                    ),
+                    _TaskList(
+                      tasksAsync: completedTasksAsync,
+                      emptyMessage: 'Completed tasks will appear here.',
+                      filterLabel: _filterLabel,
+                      onAction: (task) => _reopenTask(task),
+                      isCompletedList: true,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 

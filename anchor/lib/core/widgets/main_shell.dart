@@ -3,10 +3,43 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../design/anchor_theme.dart';
-import '../router/app_router.dart';
+import '../responsive/responsive_breakpoints.dart';
+import 'desktop_nav_rail.dart';
+import 'desktop_window_chrome.dart';
 
-/// Anchor MainShell — matches Stitch design exactly.
-/// Floating pill bottom nav with lime active dot indicator.
+/// Shared navigation items used by both mobile floating nav and desktop rail.
+const List<DesktopNavItem> kAnchorNavItems = [
+  DesktopNavItem(
+    icon: Icons.wb_sunny_outlined,
+    label: 'Brief',
+    route: '/',
+  ),
+  DesktopNavItem(
+    icon: Icons.chat_bubble_outline,
+    label: 'WhatsApp',
+    route: '/whatsapp',
+  ),
+  DesktopNavItem(
+    icon: Icons.bar_chart_rounded,
+    label: 'Progress',
+    route: '/progress',
+  ),
+  DesktopNavItem(
+    icon: Icons.timer_outlined,
+    label: 'Clock',
+    route: '/clock',
+  ),
+  DesktopNavItem(
+    icon: Icons.checklist_rounded,
+    label: 'Tasks',
+    route: '/tasks',
+  ),
+];
+
+/// Anchor MainShell — responsive wrapper for mobile and desktop layouts.
+///
+/// Mobile keeps the original floating pill bottom nav.
+/// Desktop shows a custom dark side rail + custom window chrome.
 class MainShell extends StatelessWidget {
   final Widget child;
   const MainShell({super.key, required this.child});
@@ -14,27 +47,69 @@ class MainShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final path = GoRouterState.of(context).uri.path;
-    return Scaffold(
-      backgroundColor: AnchorTheme.background,
-      extendBody: true,
-      body: child,
-      bottomNavigationBar: _FloatingNav(currentPath: path),
+
+    return ResponsiveBuilder(
+      mobile: (_) => _MobileShell(currentPath: path, child: child),
+      tablet: (_) => _MobileShell(currentPath: path, child: child),
+      desktop: (_) => _DesktopShell(currentPath: path, child: child),
     );
   }
 }
 
-// ─── Floating Pill Nav ────────────────────────────────────────────────────
+// ─── Mobile Shell (original design, unchanged) ─────────────────────────────
+class _MobileShell extends StatelessWidget {
+  final String currentPath;
+  final Widget child;
+
+  const _MobileShell({required this.currentPath, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AnchorTheme.background,
+      extendBody: true,
+      body: child,
+      bottomNavigationBar: _FloatingNav(currentPath: currentPath),
+    );
+  }
+}
+
+// ─── Desktop Shell ─────────────────────────────────────────────────────────
+class _DesktopShell extends StatelessWidget {
+  final String currentPath;
+  final Widget child;
+
+  const _DesktopShell({required this.currentPath, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: AnchorTheme.backgroundDeep,
+      body: Row(
+        children: [
+          DesktopNavRail(
+            items: kAnchorNavItems,
+            currentPath: currentPath,
+            onSettingsTap: () => context.go('/settings'),
+          ),
+          Expanded(
+            child: Column(
+              children: [
+                const DesktopWindowChrome(),
+                Expanded(child: child),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Floating Pill Nav (original design, unchanged) ─────────────────────────
 class _FloatingNav extends StatelessWidget {
   final String currentPath;
   const _FloatingNav({required this.currentPath});
-
-  static const _items = [
-    _NavItem(icon: Icons.wb_sunny_outlined,         label: 'Brief',    route: Routes.morningBrief),
-    _NavItem(icon: Icons.chat_bubble_outline,       label: 'WhatsApp', route: Routes.whatsappDigest),
-    _NavItem(icon: Icons.bar_chart_rounded,         label: 'Progress', route: Routes.lifeProgress),
-    _NavItem(icon: Icons.timer_outlined,            label: 'Clock',    route: Routes.independenceClock),
-    _NavItem(icon: Icons.checklist_rounded,         label: 'Tasks',    route: Routes.taskCenter),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -61,7 +136,7 @@ class _FloatingNav extends StatelessWidget {
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: _items.map((item) {
+          children: kAnchorNavItems.map((item) {
             final isActive = currentPath == item.route;
             return _NavTile(item: item, isActive: isActive);
           }).toList(),
@@ -71,15 +146,8 @@ class _FloatingNav extends StatelessWidget {
   }
 }
 
-class _NavItem {
-  final IconData icon;
-  final String label;
-  final String route;
-  const _NavItem({required this.icon, required this.label, required this.route});
-}
-
 class _NavTile extends StatelessWidget {
-  final _NavItem item;
+  final DesktopNavItem item;
   final bool isActive;
   const _NavTile({required this.item, required this.isActive});
 
@@ -121,7 +189,6 @@ class _NavTile extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 4),
-            // Active dot — 4px lime, 4px below label
             AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: isActive ? 4 : 0,

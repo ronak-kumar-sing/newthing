@@ -1,0 +1,22 @@
+{
+  "name": "anchor",
+  "version": "1.0.0",
+  "description": "Anchor — Personal Student Life OS. Flutter app with WhatsApp Bridge sidecar.",
+  "private": true,
+  "scripts": {
+    "flutter:run:mobile": "flutter run",
+    "flutter:run:web": "flutter run -d chrome",
+    "flutter:run:macos": "flutter run -d macos",
+    "flutter:run:windows": "flutter run -d windows",
+    "flutter:build:web": "flutter build web",
+    "flutter:build:macos": "flutter build macos",
+    "flutter:build:windows": "flutter build windows",
+    "flutter:analyze": "flutter analyze",
+    "bridge:install": "cd whatsapp-bridge && npm install",
+    "bridge:start": "cd whatsapp-bridge && node server.js",
+    "bridge:dev": "cd whatsapp-bridge && npm install && node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
