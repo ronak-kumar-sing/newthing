@@ -83,7 +83,6 @@ class _IndependenceClockScreenState extends ConsumerState<IndependenceClockScree
     await _syncWallpaperPrefs();
 
     ref.invalidate(settingsProvider);
-    ref.invalidate(daysRemainingProvider);
     ref.invalidate(independenceDateProvider);
     ref.invalidate(journeyConfigProvider);
   }

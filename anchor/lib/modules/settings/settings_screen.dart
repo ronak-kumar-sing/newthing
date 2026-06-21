@@ -1013,38 +1013,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton(
-                              style: OutlinedButton.styleFrom(
-                                side: const BorderSide(color: Color(0xFFC6F52C)),
-                                foregroundColor: const Color(0xFFC6F52C),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                              ),
-                              onPressed: () async {
-                                final success = await WidgetSyncService.pinTasksWidget();
-                                if (mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        success ? 'Tasks widget pin requested ✓' : 'Failed to request widget pin. You may need to add it manually.',
-                                        style: GoogleFonts.inter(fontSize: 13, color: Colors.black),
-                                      ),
-                                      backgroundColor: success ? const Color(0xFFC6F52C) : const Color(0xFFFFB4AB),
-                                    ),
-                                  );
-                                }
-                              },
-                              child: Text(
-                                "Pin Tasks Widget",
-                                style: GoogleFonts.plusJakartaSans(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ).animate(delay: 300.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0, duration: 300.ms),

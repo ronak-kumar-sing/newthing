@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'dart:typed_data';
@@ -17,7 +18,6 @@ import 'package:file_picker/file_picker.dart';
 import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/glass_card.dart';
 import '../../providers/journey_config_provider.dart';
-import '../../providers/settings_provider.dart';
 import 'wallpaper_canvas.dart';
 
 class WallpaperScreen extends ConsumerStatefulWidget {
@@ -212,11 +212,31 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
       final file = File('${dir.path}/anchor_wallpaper.png');
       await file.writeAsBytes(bytes);
 
-      // Persist device dimensions so the background task can render at the right size.
+      // Persist device dimensions and latest streak data so the background task can render at the right size.
       final size = MediaQuery.of(context).size;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setDouble('anchor_wallpaper_width', size.width);
       await prefs.setDouble('anchor_wallpaper_height', size.height);
+
+      // Recompute latest streak data for the background task.
+      final journey = await ref.read(journeyConfigProvider.future);
+      final streakDays = await ref.read(streakDaysProvider.future);
+      final totalDays = journey.totalDays;
+      final daysRemaining = journey.daysRemaining;
+      final intensities = List<double?>.generate(
+        totalDays,
+        (i) {
+          if (i < streakDays.length) {
+            return streakDays[i].isCompleted ? streakDays[i].intensity : 0.0;
+          }
+          return 0.0;
+        },
+      );
+      await prefs.setInt('anchor_wallpaper_days_remaining', daysRemaining);
+      await prefs.setString(
+        'anchor_wallpaper_intensities',
+        jsonEncode(intensities.map((i) => i ?? 0.0).toList()),
+      );
 
       if (kIsWeb || !Platform.isAndroid) {
         throw Exception("Setting wallpaper programmatically is only supported on Android. Save the image and apply manually.");
@@ -288,10 +308,17 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
         ? endDate.difference(startDate).inDays
         : 365;
     final daysRemaining = endDate != null ? endDate.difference(now).inDays : 365;
-    final completedDays = streakAsync.valueOrNull
-            ?.map((d) => d.isCompleted)
-            .toList() ??
-        List<bool>.generate(totalDays, (i) => false);
+
+    final streakDays = streakAsync.valueOrNull ?? [];
+    final intensities = List<double?>.generate(
+      totalDays,
+      (i) {
+        if (i < streakDays.length) {
+          return streakDays[i].isCompleted ? streakDays[i].intensity : 0.0;
+        }
+        return 0.0;
+      },
+    );
 
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
@@ -350,7 +377,7 @@ class _WallpaperScreenState extends ConsumerState<WallpaperScreen> {
                       child: WallpaperCanvas(
                         daysRemaining: daysRemaining,
                         totalDays: totalDays,
-                        completedDays: completedDays,
+                        intensities: intensities,
                         goalTitle: journey.label,
                         backgroundColor: _bgColor,
                         mode: _mode,

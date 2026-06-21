@@ -1,14 +1,28 @@
+import 'dart:convert';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 const updateWallpaperTask = "updateWallpaperTask";
+const applyWallpaperTask = "applyWallpaper";
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
-    if (task == updateWallpaperTask) {
-      // Wallpaper generation will happen here
-      BackgroundService.showNotification("Anchor", "Wallpaper updated!");
+    if (task == updateWallpaperTask || task == applyWallpaperTask) {
+      final prefs = await SharedPreferences.getInstance();
+      final daysRemaining = prefs.getInt('anchor_wallpaper_days_remaining') ?? 0;
+      final intensitiesJson = prefs.getString('anchor_wallpaper_intensities');
+      final completedCount = intensitiesJson != null
+          ? (jsonDecode(intensitiesJson) as List<dynamic>)
+              .where((i) => (i as double) > 0)
+              .length
+          : 0;
+
+      BackgroundService.showNotification(
+        "Anchor",
+        "$daysRemaining days remaining · $completedCount days completed",
+      );
     }
     return Future.value(true);
   });

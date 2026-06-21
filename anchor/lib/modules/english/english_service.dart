@@ -1,6 +1,7 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/remote/gemini_api.dart';
 import 'english_word_model.dart';
 
 class EnglishService {
@@ -79,18 +80,66 @@ class EnglishService {
     ),
   ];
 
-  // Returns today's 10 words.
-  // Uses demo words directly to ensure offline reliability and avoid API failures.
+  /// Returns today's word, using a daily SharedPreferences cache when available.
+  /// Falls back to a deterministic demo word if Gemini is unavailable.
   static Future<List<EnglishWord>> getTodayWords({
     required String geminiApiKey,
     required String geminiModel,
   }) async {
-    return _demoWords;
+    final prefs = await SharedPreferences.getInstance();
+    final today = _todayKey();
+    final cacheKey = '${_cacheKeyPrefix}words_$today';
+
+    final cached = prefs.getString(cacheKey);
+    if (cached != null && cached.isNotEmpty) {
+      try {
+        final list = (jsonDecode(cached) as List<dynamic>)
+            .map((e) => EnglishWord.fromJson(e as Map<String, dynamic>))
+            .toList();
+        if (list.isNotEmpty) return list;
+      } catch (e) {
+        debugPrint('Failed to parse cached English words: $e');
+      }
+    }
+
+    try {
+      final gemini = GeminiApi();
+      if (geminiApiKey.isNotEmpty) {
+        gemini.setApiKey(geminiApiKey);
+        gemini.setModel(geminiModel.isNotEmpty ? geminiModel : 'gemini-2.0-flash');
+      }
+
+      final words = await gemini.generateDailyWords();
+      if (words != null && words.isNotEmpty) {
+        await prefs.setString(cacheKey, jsonEncode(words.map((w) => w.toJson()).toList()));
+        return words;
+      }
+    } catch (e) {
+      debugPrint('Failed to generate daily words: $e');
+    }
+
+    // Deterministic fallback that still changes each day.
+    final fallback = _demoWords[_dayOfYear() % _demoWords.length];
+    return [fallback];
   }
 
   static String _todayKey() {
     final now = DateTime.now();
     return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+  }
+
+  static int _dayOfYear() {
+    final now = DateTime.now();
+    final start = DateTime(now.year, 1, 1);
+    return now.difference(start).inDays;
+  }
+
+  /// Returns the date key currently cached in SharedPreferences, or null.
+  static Future<String?> getCachedDateKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final keys = prefs.getKeys().where((k) => k.startsWith('${_cacheKeyPrefix}words_'));
+    if (keys.isEmpty) return null;
+    return keys.first.split('_').last;
   }
 
   static Future<void> saveTestResult(int score) async {

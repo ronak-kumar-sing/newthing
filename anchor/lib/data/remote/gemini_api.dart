@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 
+import '../../modules/english/english_word_model.dart';
+
 /// Gemini API client for Anchor's AI features.
 class GeminiApi {
   final Dio _dio;
@@ -107,7 +109,50 @@ class GeminiApi {
     }
   }
 
-  /// Generate the morning briefing text.
+  /// Generate a daily English vocabulary word.
+  /// Returns a list containing one word, or null on failure.
+  Future<List<EnglishWord>?> generateDailyWords() async {
+    const prompt = '''
+You are Anchor's Word of the Day generator. Generate one advanced English vocabulary word suitable for a CS student or young professional.
+
+Return ONLY a valid JSON array with one object in this exact format:
+[
+  {
+    "word": "string",
+    "meaning": "string",
+    "example": "string",
+    "pronunciation": "string",
+    "topic": "string"
+  }
+]
+
+Rules:
+- The word should be practical and useful.
+- The meaning must be clear and concise.
+- The example sentence should feel natural.
+- Topic should be one word like "Technology", "Leadership", "Communication", "Problem Solving", etc.
+- Do not include markdown, explanations, or any text outside the JSON array.
+''';
+    final raw = await _generateContent(prompt);
+    if (raw == null || raw.trim().isEmpty) return null;
+
+    try {
+      String jsonText = raw.trim();
+      // Remove possible markdown code fences
+      if (jsonText.startsWith('```')) {
+        jsonText = jsonText.replaceAll(RegExp(r'^```(?:json)?\s*'), '');
+        jsonText = jsonText.replaceAll(RegExp(r'\s*```$'), '');
+      }
+      final parsed = jsonDecode(jsonText) as List<dynamic>;
+      return parsed
+          .map((item) => EnglishWord.fromJson(item as Map<String, dynamic>))
+          .where((w) => w.word.isNotEmpty && w.meaning.isNotEmpty)
+          .toList();
+    } catch (e) {
+      debugPrint('Failed to parse daily words JSON: $e');
+      return null;
+    }
+  }
   Future<String?> generateMorningBriefing({
     required int daysRemaining,
     required String? independenceLabel,

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'package:drift/drift.dart' show Value;
 import '../../core/design/anchor_theme.dart';
 import '../../core/utils/task_extensions.dart';
 import '../../core/widgets/slice_widgets.dart';
@@ -13,6 +12,7 @@ import '../../providers/settings_provider.dart';
 import '../../providers/task_provider.dart';
 import '../../providers/progress_provider.dart';
 import '../../providers/api_provider.dart';
+import '../../providers/journey_config_provider.dart';
 import '../../data/remote/weather_api.dart';
 import '../../core/widgets/anchor_background.dart';
 import '../../core/widgets/skeleton_loader.dart';
@@ -24,8 +24,10 @@ import '../english/english_card_widget.dart';
 import '../english/english_test_screen.dart';
 import '../english/english_words_list_screen.dart';
 import '../independence_clock/widgets_screen.dart';
+import '../independence_clock/independence_clock_screen.dart';
 import '../../providers/sync_provider.dart';
 import '../task_center/task_center_screen.dart';
+import 'daily_brief_service.dart';
 
 /// Weather state provider.
 final weatherProvider = FutureProvider<WeatherData?>((ref) async {
@@ -44,7 +46,8 @@ final weatherProvider = FutureProvider<WeatherData?>((ref) async {
 /// Morning Briefing generator provider.
 final morningBriefingProvider = FutureProvider<String?>((ref) async {
   final settings = await ref.watch(settingsProvider.future);
-  final daysRemaining = await ref.watch(daysRemainingProvider.future) ?? 0;
+  final journey = await ref.watch(journeyConfigProvider.future);
+  final daysRemaining = journey.daysRemaining;
   final topTasks = await ref.watch(topTasksProvider.future);
 
   final overdueCount = topTasks.where((t) => t.isOverdue).length;
@@ -80,24 +83,16 @@ final morningBriefingProvider = FutureProvider<String?>((ref) async {
   final taskTitles = topTasks.map((t) => t.title).toList();
 
   final gemini = ref.read(geminiApiProvider);
-  if (!gemini.isConfigured) {
-    return "Welcome back! Start today with purpose. Make every hour count towards your long-term goals.";
-  }
 
-  try {
-    final brief = await gemini.generateMorningBriefing(
-      daysRemaining: daysRemaining,
-      independenceLabel: settings.independenceLabel,
-      topTasks: taskTitles,
-      yesterdayScreenTime: screenTimeStr,
-      weeklyStudyHours: weeklyStudyStr,
-      overdueTaskCount: overdueCount,
-    );
-    return brief;
-  } catch (e) {
-    debugPrint('Error generating morning brief: $e');
-    return "Welcome back! Prioritize your top focus tasks, minimize distractions, and stay disciplined today.";
-  }
+  return DailyBriefService.getBrief(
+    gemini: gemini,
+    daysRemaining: daysRemaining,
+    independenceLabel: settings.independenceLabel,
+    topTasks: taskTitles,
+    yesterdayScreenTime: screenTimeStr,
+    weeklyStudyHours: weeklyStudyStr,
+    overdueTaskCount: overdueCount,
+  );
 });
 
 class MorningBriefScreen extends ConsumerWidget {
@@ -106,7 +101,7 @@ class MorningBriefScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final settingsAsync = ref.watch(settingsProvider);
-    final daysRemainingAsync = ref.watch(daysRemainingProvider);
+    final journeyAsync = ref.watch(journeyConfigProvider);
     final topTasksAsync = ref.watch(topTasksProvider);
 
     final settings = settingsAsync.valueOrNull;
@@ -133,7 +128,7 @@ class MorningBriefScreen extends ConsumerWidget {
                   ref.invalidate(topTasksProvider);
                   ref.invalidate(morningBriefingProvider);
                   ref.invalidate(weatherProvider);
-                  ref.invalidate(daysRemainingProvider);
+                  ref.invalidate(journeyConfigProvider);
                   final settings = await ref.read(settingsProvider.future);
                   await ref.read(englishProvider.notifier).loadTodayWords(
                         geminiApiKey: settings.geminiApiKey,
@@ -143,7 +138,7 @@ class MorningBriefScreen extends ConsumerWidget {
                 child: SingleChildScrollView(
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                  child: _buildCardColumn(context, ref, settings, daysRemainingAsync, topTasksAsync),
+                  child: _buildCardColumn(context, ref, settings, journeyAsync, topTasksAsync),
                 ),
               ),
             ),
@@ -154,7 +149,7 @@ class MorningBriefScreen extends ConsumerWidget {
 
     return ResponsiveContentLayout(
       mobileBody: mobileBody,
-      desktopBody: _buildDesktopBody(context, ref, settings, daysRemainingAsync, name),
+      desktopBody: _buildDesktopBody(context, ref, settings, journeyAsync, name),
     );
   }
 
@@ -162,7 +157,7 @@ class MorningBriefScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     AppSetting? settings,
-    AsyncValue<int?> daysRemainingAsync,
+    AsyncValue<JourneyConfig> journeyAsync,
     AsyncValue<List<Task>> topTasksAsync,
   ) {
     return Column(
@@ -171,7 +166,7 @@ class MorningBriefScreen extends ConsumerWidget {
         FadeSlideIn(
           delaySeconds: 0.05,
           child: _CountdownCard(
-            daysRemaining: daysRemainingAsync.valueOrNull,
+            journey: journeyAsync.valueOrNull,
             label: settings?.independenceLabel ?? 'Target Date',
           ),
         ),
@@ -248,7 +243,7 @@ class MorningBriefScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     AppSetting? settings,
-    AsyncValue<int?> daysRemainingAsync,
+    AsyncValue<JourneyConfig> journeyAsync,
     String name,
   ) {
     final now = DateTime.now();
@@ -292,7 +287,7 @@ class MorningBriefScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 32),
           // Reuse the same cards but allow them to breathe at max-width
-          _buildCardColumn(context, ref, settings, daysRemainingAsync, ref.watch(topTasksProvider)),
+          _buildCardColumn(context, ref, settings, journeyAsync, ref.watch(topTasksProvider)),
         ],
       ),
     );
@@ -414,16 +409,17 @@ class MorningBriefScreen extends ConsumerWidget {
 }
 
 class _CountdownCard extends StatelessWidget {
-  final int? daysRemaining;
+  final JourneyConfig? journey;
   final String label;
 
-  const _CountdownCard({this.daysRemaining, required this.label});
+  const _CountdownCard({this.journey, required this.label});
 
   @override
   Widget build(BuildContext context) {
-    final days = daysRemaining ?? 0;
-    final progress = days > 0 ? (1.0 - (days / 365.0)).clamp(0.0, 1.0) : 0.0;
-    final currentDay = (365 - days).clamp(1, 365);
+    final days = journey?.daysRemaining ?? 0;
+    final totalDays = journey?.totalDays ?? 365;
+    final progress = journey?.progress ?? 0.0;
+    final currentDay = totalDays > 0 ? (totalDays - days).clamp(1, totalDays) : 1;
 
     return CleanCard(
       padding: const EdgeInsets.all(20),
@@ -445,7 +441,7 @@ class _CountdownCard extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  daysRemaining != null ? '$days' : '—',
+                  journey != null ? '$days' : '—',
                   style: GoogleFonts.inter(
                     fontSize: 48,
                     fontWeight: FontWeight.w900,
@@ -492,7 +488,7 @@ class _CountdownCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Day $currentDay of 365',
+                    'Day $currentDay of $totalDays',
                     style: GoogleFonts.inter(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
@@ -1064,10 +1060,6 @@ class _CheckInCardState extends ConsumerState<_CheckInCard> {
   }
 
   Future<void> _save(String type, int val) async {
-    final today = DateTime.now();
-    final dateOnly = DateTime(today.year, today.month, today.day);
-    final existing = await ref.read(journalDaoProvider).getTodayEntry();
-
     int? s = _sleep;
     int? en = _energy;
     int? f = _focus;
@@ -1081,15 +1073,14 @@ class _CheckInCardState extends ConsumerState<_CheckInCard> {
         f = val;
     }
 
-    await ref.read(journalDaoProvider).upsertEntry(
-          JournalEntriesCompanion(
-            id: Value(existing?.id ?? 'journal_${today.millisecondsSinceEpoch}'),
-            date: Value(dateOnly),
-            sleepRating: Value(s),
-            energyRating: Value(en),
-            focusRating: Value(f),
-          ),
-        );
+    await ref.read(journalDaoProvider).updateCheckIn(
+      sleepRating: s,
+      energyRating: en,
+      focusRating: f,
+    );
+
+    ref.invalidate(streakDaysProvider);
+    ref.invalidate(journalStreakProvider);
 
     if (mounted) {
       setState(() {
@@ -1243,17 +1234,10 @@ class _IntentionCardState extends ConsumerState<_IntentionCard> {
     final text = _ctrl.text.trim();
     if (text == _lastSavedText) return;
 
-    final today = DateTime.now();
-    final dateOnly = DateTime(today.year, today.month, today.day);
-    final existing = await ref.read(journalDaoProvider).getTodayEntry();
+    await ref.read(journalDaoProvider).updateIntention(text);
 
-    await ref.read(journalDaoProvider).upsertEntry(
-          JournalEntriesCompanion(
-            id: Value(existing?.id ?? 'journal_${today.millisecondsSinceEpoch}'),
-            date: Value(dateOnly),
-            dailyIntention: Value(text),
-          ),
-        );
+    ref.invalidate(streakDaysProvider);
+    ref.invalidate(journalStreakProvider);
 
     _lastSavedText = text;
 

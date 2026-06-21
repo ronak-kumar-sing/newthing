@@ -42,6 +42,28 @@ class JournalDao extends DatabaseAccessor<AnchorDatabase> with _$JournalDaoMixin
     return into(journalEntries).insertOnConflictUpdate(entry);
   }
 
+  /// Ensures a single journal entry exists for today, creating one with a
+  /// deterministic id if needed. This prevents multiple cards from creating
+  /// separate rows for the same day.
+  Future<JournalEntry> ensureTodayEntry() async {
+    final existing = await getTodayEntry();
+    if (existing != null) return existing;
+
+    final today = DateTime.now();
+    final dateOnly = DateTime(today.year, today.month, today.day);
+    final id = 'journal_${dateOnly.toUtc().toIso8601String().split('T').first}';
+
+    await into(journalEntries).insert(
+      JournalEntriesCompanion(
+        id: Value(id),
+        date: Value(dateOnly),
+      ),
+      mode: InsertMode.insertOrIgnore,
+    );
+
+    return getTodayEntry().then((e) => e!);
+  }
+
   /// Update check-in ratings for today.
   Future<void> updateCheckIn({
     int? sleepRating,
@@ -49,54 +71,42 @@ class JournalDao extends DatabaseAccessor<AnchorDatabase> with _$JournalDaoMixin
     int? focusRating,
     int? moodRating,
   }) async {
-    final today = DateTime.now();
-    final existing = await getTodayEntry();
+    final existing = await ensureTodayEntry();
 
-    if (existing != null) {
-      await (update(journalEntries)
-        ..where((e) => e.id.equals(existing.id)))
-          .write(JournalEntriesCompanion(
-        sleepRating: sleepRating != null ? Value(sleepRating) : const Value.absent(),
-        energyRating: energyRating != null ? Value(energyRating) : const Value.absent(),
-        focusRating: focusRating != null ? Value(focusRating) : const Value.absent(),
-        moodRating: moodRating != null ? Value(moodRating) : const Value.absent(),
-      ));
-    } else {
-      await into(journalEntries).insert(JournalEntriesCompanion(
-        id: Value('journal_${today.millisecondsSinceEpoch}'),
-        date: Value(DateTime(today.year, today.month, today.day)),
-        sleepRating: sleepRating != null ? Value(sleepRating) : const Value.absent(),
-        energyRating: energyRating != null ? Value(energyRating) : const Value.absent(),
-        focusRating: focusRating != null ? Value(focusRating) : const Value.absent(),
-        moodRating: moodRating != null ? Value(moodRating) : const Value.absent(),
-      ));
-    }
+    await (update(journalEntries)
+      ..where((e) => e.id.equals(existing.id)))
+        .write(JournalEntriesCompanion(
+      sleepRating: sleepRating != null ? Value(sleepRating) : const Value.absent(),
+      energyRating: energyRating != null ? Value(energyRating) : const Value.absent(),
+      focusRating: focusRating != null ? Value(focusRating) : const Value.absent(),
+      moodRating: moodRating != null ? Value(moodRating) : const Value.absent(),
+    ));
+  }
+
+  /// Update today's daily intention text.
+  Future<void> updateIntention(String text) async {
+    final existing = await ensureTodayEntry();
+
+    await (update(journalEntries)
+      ..where((e) => e.id.equals(existing.id)))
+        .write(JournalEntriesCompanion(
+      dailyIntention: Value(text),
+    ));
   }
 
   /// Get streak count for a specific habit/behavior.
-  /// Checks consecutive days where a condition is met.
+  /// Checks consecutive days where a condition is met, walking backwards day by day.
   Future<int> getStreak(bool Function(JournalEntry) condition) async {
-    final entries = await (select(journalEntries)
-      ..orderBy([(e) => OrderingTerm(expression: e.date, mode: OrderingMode.desc)]))
-        .get();
-
     int streak = 0;
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
 
-    for (int i = 0; i < entries.length; i++) {
-      final entryDate = DateTime(
-        entries[i].date.year,
-        entries[i].date.month,
-        entries[i].date.day,
-      );
-      final expectedDate = DateTime(now.year, now.month, now.day)
-          .subtract(Duration(days: i));
+    for (int i = 0; i < 365; i++) {
+      final expectedDate = today.subtract(Duration(days: i));
+      final entry = await getEntryForDate(expectedDate);
 
-      if (entryDate == expectedDate && condition(entries[i])) {
+      if (entry != null && condition(entry)) {
         streak++;
-      } else if (i == 0 && entryDate != expectedDate) {
-        // Today hasn't been checked in yet, skip
-        continue;
       } else {
         break;
       }

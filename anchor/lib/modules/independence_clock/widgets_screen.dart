@@ -7,6 +7,7 @@ import '../../core/design/anchor_theme.dart';
 import '../../core/widgets/anchor_background.dart';
 import '../../core/widgets/slice_widgets.dart';
 import '../../features/streak/models/streak_widget_data.dart';
+import '../../features/streak/services/streak_calculator.dart';
 import '../../features/streak/services/widget_sync_service.dart';
 import '../../providers/journey_config_provider.dart';
 
@@ -23,31 +24,8 @@ final _widgetStreakPreviewProvider = FutureProvider<StreakWidgetData>((ref) asyn
         ? ((completedDays / totalDays) * 100.0).clamp(0.0, 100.0)
         : 0.0;
 
-    int currentStreak = 0;
-    final now = DateTime.now();
-    final todayKey = DateTime(now.year, now.month, now.day);
-
-    final dateMap = {
-      for (final d in streakDays)
-        DateTime(d.date.year, d.date.month, d.date.day): d,
-    };
-
-    for (int i = 0; i < totalDays; i++) {
-      final checkDate = todayKey.subtract(Duration(days: i));
-      final entry = dateMap[checkDate];
-      if (entry != null && entry.isCompleted) {
-        currentStreak++;
-      } else if (i == 0) {
-        continue;
-      } else {
-        break;
-      }
-    }
-
-    final last7Days = <bool>[
-      for (int i = 6; i >= 0; i--)
-        dateMap[todayKey.subtract(Duration(days: i))]?.isCompleted ?? false,
-    ];
+    final currentStreak = calculateCurrentStreak(streakDays);
+    final last7 = last7Days(streakDays);
 
     return StreakWidgetData(
       habitName: journey.label,
@@ -55,7 +33,7 @@ final _widgetStreakPreviewProvider = FutureProvider<StreakWidgetData>((ref) asyn
       targetDays: totalDays,
       daysLeft: daysLeft,
       percentage: percentage,
-      last7Days: last7Days,
+      last7Days: last7,
       accentColorHex: AnchorTheme.accent.toHex(),
     );
   } catch (e, stack) {
@@ -72,31 +50,7 @@ final _widgetStreakPreviewProvider = FutureProvider<StreakWidgetData>((ref) asyn
   }
 });
 
-/// Static sample tasks for the tasks widget preview.
-final _widgetTasksPreviewProvider = Provider<List<TaskWidgetData>>((ref) {
-  return const [
-    TaskWidgetData(
-      id: 'sample_1',
-      title: 'Review morning brief',
-      isCompleted: true,
-      category: 'Productivity',
-    ),
-    TaskWidgetData(
-      id: 'sample_2',
-      title: 'Deep work session',
-      isCompleted: false,
-      category: 'Focus',
-    ),
-    TaskWidgetData(
-      id: 'sample_3',
-      title: 'Evening journal entry',
-      isCompleted: false,
-      category: 'Wellness',
-    ),
-  ];
-});
-
-/// Home screen widgets gallery — preview and pin streak/tasks widgets.
+/// Home screen widgets gallery — preview and pin the streak widget.
 class WidgetsScreen extends ConsumerStatefulWidget {
   const WidgetsScreen({super.key});
 
@@ -106,20 +60,12 @@ class WidgetsScreen extends ConsumerStatefulWidget {
 
 class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
   bool _pinningStreak = false;
-  bool _pinningTasks = false;
 
   Future<void> _pinStreakWidget() async {
     setState(() => _pinningStreak = true);
     final success = await WidgetSyncService.pinStreakWidget();
     setState(() => _pinningStreak = false);
     _showPinResult('Streak widget pin requested', success);
-  }
-
-  Future<void> _pinTasksWidget() async {
-    setState(() => _pinningTasks = true);
-    final success = await WidgetSyncService.pinTasksWidget();
-    setState(() => _pinningTasks = false);
-    _showPinResult('Tasks widget pin requested', success);
   }
 
   void _showPinResult(String message, bool success) {
@@ -140,7 +86,6 @@ class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
   @override
   Widget build(BuildContext context) {
     final streakAsync = ref.watch(_widgetStreakPreviewProvider);
-    final tasks = ref.watch(_widgetTasksPreviewProvider);
 
     return Scaffold(
       backgroundColor: AnchorTheme.backgroundDeep,
@@ -179,7 +124,7 @@ class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'HOME SCREEN WIDGETS',
+                      'HOME SCREEN WIDGET',
                       style: GoogleFonts.plusJakartaSans(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
@@ -194,22 +139,12 @@ class _WidgetsScreenState extends ConsumerState<WidgetsScreen> {
                       preview: streakAsync.when(
                         data: (data) => _StreakWidgetPreview(data: data),
                         loading: () => const _PreviewLoading(),
-                        error: (_, _) => const _PreviewError(),
+                        error: (_, __) => const _PreviewError(),
                       ),
                       buttonText: 'Pin Streak Widget',
                       buttonIcon: Icons.add_to_home_screen,
                       isLoading: _pinningStreak,
                       onPressed: _pinStreakWidget,
-                    ),
-                    const SizedBox(height: AnchorTheme.stackGap),
-                    _buildWidgetCard(
-                      title: 'Tasks Widget',
-                      description: "See today's active tasks at a glance without opening the app.",
-                      preview: _TasksWidgetPreview(tasks: tasks),
-                      buttonText: 'Pin Tasks Widget',
-                      buttonIcon: Icons.add_to_home_screen,
-                      isLoading: _pinningTasks,
-                      onPressed: _pinTasksWidget,
                     ),
                   ],
                 ),
@@ -404,107 +339,6 @@ class _StreakWidgetPreview extends StatelessWidget {
               );
             }).toList(),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _TasksWidgetPreview extends StatelessWidget {
-  final List<TaskWidgetData> tasks;
-
-  const _TasksWidgetPreview({required this.tasks});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: const BoxDecoration(
-        color: Color(0xFF161616),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "TODAY'S TASKS",
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
-                  letterSpacing: 0.1,
-                ),
-              ),
-              Text(
-                'ANCHOR',
-                style: GoogleFonts.inter(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w700,
-                  color: AnchorTheme.accent,
-                  letterSpacing: 0.15,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Container(height: 1, color: const Color(0xFF252525)),
-          const SizedBox(height: 8),
-          if (tasks.isEmpty)
-            Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  'All tasks completed for today.',
-                  style: GoogleFonts.inter(fontSize: 12, color: AnchorTheme.textMuted),
-                ),
-              ),
-            )
-          else
-            ...tasks.map((task) => Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        task.isCompleted ? Icons.check_circle : Icons.circle_outlined,
-                        size: 16,
-                        color: task.isCompleted
-                            ? AnchorTheme.accent
-                            : Colors.white.withOpacity(0.3),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              task.title,
-                              style: GoogleFonts.inter(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                decoration: task.isCompleted
-                                    ? TextDecoration.lineThrough
-                                    : null,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            Text(
-                              (task.category ?? 'General').toUpperCase(),
-                              style: GoogleFonts.inter(
-                                fontSize: 9,
-                                color: AnchorTheme.textMuted,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                )),
         ],
       ),
     );

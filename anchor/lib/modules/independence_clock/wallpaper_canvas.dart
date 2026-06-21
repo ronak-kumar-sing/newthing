@@ -1,12 +1,11 @@
 import 'dart:io';
-import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class WallpaperCanvas extends StatelessWidget {
   final int daysRemaining;
   final int totalDays;
-  final List<bool> completedDays;
+  final List<double?> intensities;
   final String goalTitle;
   final Color backgroundColor;
   final String mode; // 'color' or 'image'
@@ -19,7 +18,7 @@ class WallpaperCanvas extends StatelessWidget {
     super.key,
     required this.daysRemaining,
     required this.totalDays,
-    required this.completedDays,
+    required this.intensities,
     required this.goalTitle,
     this.backgroundColor = const Color(0xFF0A0A0A),
     this.mode = 'color',
@@ -43,7 +42,7 @@ class WallpaperCanvas extends StatelessWidget {
           screenH: h,
           daysRemaining: daysRemaining,
           totalDays: totalDays,
-          completedDays: completedDays,
+          intensities: intensities,
           goalTitle: goalTitle,
           backgroundColor: backgroundColor,
           mode: mode,
@@ -60,7 +59,7 @@ class WallpaperCanvas extends StatelessWidget {
 class _WallpaperLayout extends StatelessWidget {
   final double screenW, screenH;
   final int daysRemaining, totalDays;
-  final List<bool> completedDays;
+  final List<double?> intensities;
   final String goalTitle;
   final Color backgroundColor;
   final String mode;
@@ -74,7 +73,7 @@ class _WallpaperLayout extends StatelessWidget {
     required this.screenH,
     required this.daysRemaining,
     required this.totalDays,
-    required this.completedDays,
+    required this.intensities,
     required this.goalTitle,
     required this.backgroundColor,
     required this.mode,
@@ -119,31 +118,28 @@ class _WallpaperLayout extends StatelessWidget {
     final double hMargin = screenW * 0.055;
     final double gridW = screenW - hMargin * 2;
     final double dotStep = gridW / cols;
-    
+
     // Apply gridScale
     final double dotSize = (dotStep * 0.72) * gridScale;
     final double dotGap = (dotStep - dotStep * 0.72) * gridScale;
-    
-    final double actualGridW = cols * dotSize + (cols - 1) * dotGap;
+
     final double actualGridH = rows * dotSize + (rows - 1) * dotGap;
 
-    // Centered Grid position
-    final double gridY = (screenH - actualGridH) / 2;
-
-    // 3. Text Position
-    double textY;
-    if (textAlignment == 'top') {
-      textY = screenH * 0.08;
-    } else if (textAlignment == 'center') {
-      textY = gridY - 75;
-    } else {
-      textY = gridY + actualGridH + 35;
-    }
+    // Centered Grid position, kept within safe vertical margins.
+    final double minGridY = screenH * 0.12;
+    final double maxGridY = screenH * 0.72 - actualGridH;
+    final double centeredGridY = (screenH - actualGridH) / 2;
+    final double gridY = centeredGridY.clamp(minGridY, maxGridY);
 
     // Progress % calculation
     final double progressPct = totalDays > 0
-        ? ((completedDays.where((c) => c).length / totalDays) * 100)
+        ? ((intensities.where((i) => (i ?? 0) > 0).length / totalDays) * 100)
         : 0;
+
+    // Text block with estimated height for clamping.
+    final double titleFontSize = screenW * 0.046;
+    final double subtitleFontSize = screenW * 0.030;
+    final double estimatedTextHeight = titleFontSize + 6 + subtitleFontSize + 24;
 
     final textBlock = Column(
       mainAxisSize: MainAxisSize.min,
@@ -153,7 +149,7 @@ class _WallpaperLayout extends StatelessWidget {
           goalTitle.toUpperCase(),
           textAlign: TextAlign.center,
           style: GoogleFonts.spaceGrotesk(
-            fontSize: screenW * 0.046,
+            fontSize: titleFontSize,
             fontWeight: FontWeight.w800,
             color: Colors.white,
             letterSpacing: 2.2,
@@ -164,7 +160,7 @@ class _WallpaperLayout extends StatelessWidget {
           "${progressPct.round()}% COMPLETE  ·  $daysRemaining DAYS LEFT",
           textAlign: TextAlign.center,
           style: GoogleFonts.plusJakartaSans(
-            fontSize: screenW * 0.030,
+            fontSize: subtitleFontSize,
             fontWeight: FontWeight.w700,
             color: const Color(0xFFC6F52C),
             letterSpacing: 1.0,
@@ -172,6 +168,19 @@ class _WallpaperLayout extends StatelessWidget {
         ),
       ],
     );
+
+    // 3. Text Position
+    final double minTextY = screenH * 0.06;
+    final double maxTextY = screenH * 0.94 - estimatedTextHeight;
+    double textY;
+    if (textAlignment == 'top') {
+      textY = screenH * 0.08;
+    } else if (textAlignment == 'center') {
+      textY = gridY - 75;
+    } else {
+      textY = gridY + actualGridH + 35;
+    }
+    textY = textY.clamp(minTextY, maxTextY);
 
     return Stack(
       children: [
@@ -191,7 +200,7 @@ class _WallpaperLayout extends StatelessWidget {
           child: CustomPaint(
             painter: _DotGridPainter(
               totalDays: totalDays,
-              completedDays: completedDays,
+              intensities: intensities,
               cols: cols,
               dotSize: dotSize,
               dotGap: dotGap,
@@ -215,13 +224,13 @@ class _WallpaperLayout extends StatelessWidget {
 
 class _DotGridPainter extends CustomPainter {
   final int totalDays, cols;
-  final List<bool> completedDays;
+  final List<double?> intensities;
   final double dotSize, dotGap;
   final Color filledColor, emptyColor;
 
   const _DotGridPainter({
     required this.totalDays,
-    required this.completedDays,
+    required this.intensities,
     required this.cols,
     required this.dotSize,
     required this.dotGap,
@@ -233,10 +242,6 @@ class _DotGridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final double step = dotSize + dotGap;
     final double cornerR = dotSize * 0.28; // rounded square corners
-
-    final Paint filledPaint = Paint()
-      ..color = filledColor
-      ..style = PaintingStyle.fill;
 
     final Paint emptyPaint = Paint()
       ..color = emptyColor.withValues(alpha: 0.12) // Subtle outline
@@ -265,12 +270,14 @@ class _DotGridPainter extends CustomPainter {
         Radius.circular(cornerR),
       );
 
-      final isCompleted = i < completedDays.length && completedDays[i];
-      if (isCompleted) {
-        // GREEN filled square (completed day)
+      final intensity = i < intensities.length ? (intensities[i] ?? 0.0) : 0.0;
+      if (intensity > 0) {
+        final Paint filledPaint = Paint()
+          ..color = filledColor.withOpacity(intensity.clamp(0.0, 1.0))
+          ..style = PaintingStyle.fill;
         canvas.drawRRect(rr, filledPaint);
       } else {
-        // WHITE outlined square (remaining day)
+        // White outlined square (remaining day)
         canvas.drawRRect(rr, emptyFillPaint);
         canvas.drawRRect(rr, emptyPaint);
       }
@@ -279,5 +286,5 @@ class _DotGridPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DotGridPainter old) =>
-      old.completedDays != completedDays || old.dotSize != dotSize;
+      old.intensities != intensities || old.dotSize != dotSize;
 }

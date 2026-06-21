@@ -27,24 +27,3 @@ class StreakWidgetData {
         'accentColorHex': accentColorHex,
       };
 }
-
-class TaskWidgetData {
-  final String id;
-  final String title;
-  final bool isCompleted;
-  final String? category;
-
-  const TaskWidgetData({
-    required this.id,
-    required this.title,
-    required this.isCompleted,
-    this.category,
-  });
-
-  Map<String, dynamic> toJson() => {
-        'id': id,
-        'title': title,
-        'isCompleted': isCompleted,
-        'category': category,
-      };
-}

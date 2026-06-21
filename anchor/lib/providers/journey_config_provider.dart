@@ -66,8 +66,12 @@ final journeyConfigProvider = FutureProvider<JourneyConfig>((ref) async {
 /// Generates one [StreakDay] per day from the journey start date up to today,
 /// using the actual total days from [journeyConfigProvider]. A day is
 /// considered completed when the user logged a focus rating >= 3.
+///
+/// The intensity blends the focus rating with progress/activity data from the
+/// Progress Page so higher activity results in darker streak cells.
 final streakDaysProvider = FutureProvider<List<StreakDay>>((ref) async {
-  final dao = ref.watch(journalDaoProvider);
+  final journalDao = ref.watch(journalDaoProvider);
+  final progressDao = ref.watch(progressDaoProvider);
   final journey = await ref.watch(journeyConfigProvider.future);
 
   final startDate = journey.startDate;
@@ -77,20 +81,46 @@ final streakDaysProvider = FutureProvider<List<StreakDay>>((ref) async {
 
   if (startDate == null || totalDays <= 0) return const [];
 
-  final entries = await dao.getEntriesForRange(startDate, endKey);
+  final entries = await journalDao.getEntriesForRange(startDate, endKey);
   final entryMap = {
     for (final e in entries)
       DateTime(e.date.year, e.date.month, e.date.day): e,
   };
+
+  final progressValues = await progressDao.getAllValuesForRange(startDate, endKey);
+  final progressByDay = <DateTime, double>{};
+  for (final v in progressValues) {
+    final key = DateTime(v.date.year, v.date.month, v.date.day);
+    progressByDay[key] = (progressByDay[key] ?? 0.0) + v.value;
+  }
+  final maxDayTotal = progressByDay.values.fold<double>(
+    0.0,
+    (max, value) => value > max ? value : max,
+  );
 
   return List<StreakDay>.generate(totalDays, (i) {
     final date = startDate.add(Duration(days: i));
     final dateKey = DateTime(date.year, date.month, date.day);
     final entry = entryMap[dateKey];
     final isCompleted = entry != null && entry.focusRating != null && entry.focusRating! >= 3;
-    final intensity = entry?.focusRating != null
+
+    final focusIntensity = entry?.focusRating != null
         ? (entry!.focusRating! / 5.0).clamp(0.0, 1.0)
-        : null;
+        : 0.0;
+    final dayTotal = progressByDay[dateKey] ?? 0.0;
+    final activityScore = maxDayTotal > 0
+        ? (dayTotal / maxDayTotal).clamp(0.0, 1.0)
+        : 0.0;
+
+    // Blend focus and activity. If the day has no progress data at all,
+    // fall back to focus-only intensity.
+    final double intensity;
+    if (progressByDay.isEmpty) {
+      intensity = entry?.focusRating != null ? focusIntensity : 1.0;
+    } else {
+      intensity = (focusIntensity * 0.5 + activityScore * 0.5).clamp(0.0, 1.0);
+    }
+
     return StreakDay(
       date: date,
       isCompleted: isCompleted,

@@ -45,7 +45,16 @@ class EnglishNotifier extends StateNotifier<EnglishState> {
     String? geminiApiKey,
     String? geminiModel,
   }) async {
-    if (state.isLoading || state.words.isNotEmpty) return;
+    if (state.isLoading) return;
+
+    // If we already have words, verify they are for today. Otherwise clear and reload.
+    if (state.words.isNotEmpty) {
+      final cachedKey = await EnglishService.getCachedDateKey();
+      final todayKey = _todayKey();
+      if (cachedKey == todayKey) return;
+      state = state.copyWith(words: []);
+    }
+
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -58,6 +67,11 @@ class EnglishNotifier extends StateNotifier<EnglishState> {
     } catch (e) {
       state = state.copyWith(error: e.toString(), isLoading: false);
     }
+  }
+
+  static String _todayKey() {
+    final now = DateTime.now();
+    return '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
   }
 
   Future<void> submitTestScore(int score) async {

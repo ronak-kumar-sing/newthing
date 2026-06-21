@@ -1,0 +1,15 @@
+{
+  "name": "anchor-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Anchor — Personal Student Life OS. Deployed to Vercel as a Flutter web app.",
+  "scripts": {
+    "flutter:build:web": "cd anchor && flutter build web --release",
+    "vercel:install": "npm install -g vercel",
+    "deploy:vercel": "cd anchor/build/web && vercel --prod",
+    "deploy:vercel:preview": "cd anchor/build/web && vercel"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

@@ -60,6 +60,14 @@ class ProgressDao extends DatabaseAccessor<AnchorDatabase> with _$ProgressDaoMix
         .get();
   }
 
+  /// Get all progress values (across all dimensions) in a date range.
+  Future<List<ProgressValue>> getAllValuesForRange(DateTime start, DateTime end) {
+    return (select(progressValues)
+      ..where((v) => v.date.isBetweenValues(start, end))
+      ..orderBy([(v) => OrderingTerm(expression: v.date)]))
+        .get();
+  }
+
   /// Get weekly total for a dimension.
   Future<double> getWeeklyTotal(String dimensionId, DateTime weekStart) {
     final weekEnd = weekStart.add(const Duration(days: 7));
